@@ -6,14 +6,16 @@ from openmm import unit as openmm_unit
 
 input_json_file = sys.argv[1]
 ### Are we continuing a previous simulation?
-continue_from_previous_sim = bool(sys.argv[1])
-continue_sim_steps = int(sys.argv[2]) #500000 = 1ns. If we are continuing a previous simulation, this overrides the production_steps variable.
+continue_from_previous_sim = True if sys.argv[2] == 'True' else False
+continue_sim_steps = int(sys.argv[3]) #500000 = 1ns. If we are continuing a previous simulation, this overrides the production_steps variable.
 
 ############################################
 ############ GET SIM PARAMETERS ############
 ############################################
 
-from easyMD.utils import read_sim_parameters
+#add .. to the path so we can import from the parent directory
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from utils.io import read_sim_parameters
 
 minimization_steps, \
 equilibration_steps,\
