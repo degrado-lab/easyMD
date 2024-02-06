@@ -6,6 +6,8 @@ A simple tool for creating and running MD simulations, using Jupyter and OpenMM.
 
 This Jupyter notebook will walk you through setting up an MD simulation using the PDB. It can be run as-is, or configured easily using the OpenMM python API.
 
+This notebook is not meant to be a black box: where useful, I package up some extra code under the `utils/` directory, but I try to leave as much of the code as possible visible to the user for easy editing.
+
 The simulations can be run locally, or queued to a cluster from within the notebook.
 
 ## Table of Contents
