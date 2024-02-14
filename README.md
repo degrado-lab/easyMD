@@ -34,7 +34,7 @@ Once created, enter the environment using:
 
 `conda activate easyMD`
 
-Make a copy of the `prep_and_run_template.ipynb` notebook for your analysis, and get started!
+Make a copy of the `prep_and_run_template.ipynb` notebook for your analysis, and get started! For now, all notebooks must stay in the original directory, to reference local code.
 
 ### Tips for Wynton:
 On Wynton, you must first load the conda and conda-stage modules:
