@@ -20,7 +20,13 @@ The simulations can be run locally, or queued to a cluster from within the noteb
 
 ## Installation
 
-A conda environment is provided, in the form of a .yml file. To install, use the following command:
+The notebooks and relevant code are packaged into this repository. To install, first clone this github repo using the following command:
+
+`git clone https://github.com/degrado-lab/easyMD.git`
+
+Then, enter the directory.
+
+A conda environment is provided, in the form of a .yml file. To create it, use the following command:
 
 `conda env create -f easyMD.yml`
 
@@ -28,7 +34,7 @@ Once created, enter the environment using:
 
 `conda activate easyMD`
 
-and run the `prep_and_run.ipynb` notebook.
+Make a copy of the `prep_and_run_template.ipynb` notebook for your analysis, and get started!
 
 ### Tips for Wynton:
 On Wynton, you must first load the conda and conda-stage modules:
