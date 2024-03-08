@@ -159,4 +159,35 @@ def setup_experiment_dir(experiments_dir, experiment_name):
 
     return current_experiment_dir, inputs_dir, raw_dir, processed_dir, sim_dir
 
+def create_dirs(dir_list):
+    '''
+    Create the directories if they do not exist.
+    Input:
+    dir_list: list of Path objects
     
+    Returns:
+    None
+    '''
+    #Make the directories if they don't exist
+    for dir in dir_list:
+        if not dir.exists():
+            #make directory recursively:
+            dir.mkdir(parents=True)
+
+###############################
+### DOWNLOAD EXTERNAL FILES ###
+###############################
+
+import requests
+def download_pdb(pdb_id):
+    url = f'https://files.rcsb.org/download/{pdb_id}.pdb'
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        with open(f'{pdb_id}.pdb', 'w') as file:
+            file.write(response.text)
+        print(f'Successfully downloaded {pdb_id}.pdb')
+    else:
+        print(f'Failed to download {pdb_id}.pdb. Please check the PDB ID.')
+
+

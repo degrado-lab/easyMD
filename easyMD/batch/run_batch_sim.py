@@ -93,3 +93,15 @@ simulation.reporters.append(CheckpointReporter( str(sim_dir / (str(Path(input_pd
 simulation.step(production_steps)
 
 print('Done!')
+
+
+from easyMD.utils import run_sim 
+
+
+
+
+
+
+
+
+
