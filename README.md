@@ -43,7 +43,7 @@ On Wynton, you must first load the conda and conda-stage modules:
 
 `module load CBI conda-stage`
 
-Create the environment using `conda env create`, as above.
+Create the environment using `conda env create -f easyMD.yml`, as above.
 
 This can be painfully slow on Wynton, but in my experience, shouldn't take more than 20 minutes for this environment.
 
