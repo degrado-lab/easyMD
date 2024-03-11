@@ -3,6 +3,7 @@ from pathlib import Path
 from openmm.app import PDBFile, ForceField, Simulation, DCDReporter, StateDataReporter, CheckpointReporter, PME, HBonds
 from openmm import LangevinIntegrator
 from openmm import unit as openmm_unit
+from openff.toolkit import Molecule
 import sys
 
 def run_sim_local(sim_dir, continue_from_previous_sim=False, continue_sim_steps=None):
@@ -54,11 +55,24 @@ def run_sim_local(sim_dir, continue_from_previous_sim=False, continue_sim_steps=
     ############### SETUP SYSTEM ###############
     ############################################
 
-    # Here, we load the processed pdb and set up the system:
-
+    # Load the processed PDB:
     pdb_path = processed_dir / Path(input_pdb_file).name
     pdb = PDBFile(str(pdb_path))
+
+    # Set up the Forcefield:
     forcefield = ForceField(*forcefield_files)
+    
+    # Are we using ligands? If so, add their templates to the forcefield.
+    from openmmforcefields.generators import GAFFTemplateGenerator
+    ligand_dir = processed_dir / 'ligands'
+    if ligand_dir.exists():
+        #iterate over files:
+        for ligand_file in ligand_dir.iterdir():
+            if ligand_file.suffix == '.sdf':
+                ligand = Molecule.from_file(ligand_file)
+                forcefield.registerTemplateGenerator( GAFFTemplateGenerator(molecules=ligand).generator)
+
+    # Create simulation:
     system = forcefield.createSystem(pdb.topology, nonbondedMethod=PME, nonbondedCutoff=1.0*openmm_unit.nanometer, constraints=HBonds)
     integrator = LangevinIntegrator(temperature, 1/openmm_unit.picosecond, step_size)
     simulation = Simulation(pdb.topology, system, integrator)

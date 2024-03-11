@@ -34,7 +34,8 @@ def show_traj(pdb_path, dcd_path, size=[1600, 800]):
     view = nv.show_mdtraj(traj_no_water)
     view.clear_representations()
     view.add_representation('cartoon', selection='all', color='residueindex')
-    view.add_representation('ball+stick', selection='hetero and not water', aspectRatio=4.0)
+    #make sure we're seeing ligand:
+    view.add_representation('ball+stick', selection='not (protein or water or NA or CL)', aspectRatio=4.0)
     
     #get size as string
     size_str = [str(s) + 'px' for s in size]
