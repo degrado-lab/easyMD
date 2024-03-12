@@ -164,38 +164,40 @@ def run_sim_wynton(sim_dir, continue_from_previous_sim=False, continue_sim_steps
     ################## RUN SCRIPT #####################
     ###################################################
     bash_script = f'''
-    #!/bin/bash           # the shell language when run outside of the job scheduler
-    #                     # lines starting with #$ is an instruction to the job scheduler
-    #$ -S /bin/bash       # the shell language when run via the job scheduler [IMPORTANT]
-    #$ -cwd               # job should run in the current working directory
-    #$ -N {experiment_name.replace('/', '_')} # set the name of the job
-    #$ -j y               # STDERR and STDOUT should be joined
-    #$ -o {sim_dir}       # set the destination for the STDOUT file
-    #$ -l mem_free={mem}     # job requires up to 1 GiB of RAM per slot
-    #$ -l scratch=2G      # job requires up to 2 GiB of local /scratch space
-    #$ -l h_rt={max_runtime}    # job requires up to this many hours of runtime
-    #$ -r y               # if job crashes, it should be restarted
-    #$ -q gpu.q           # use the gpu queue
+#!/bin/bash           # the shell language when run outside of the job scheduler
+#                     # lines starting with #$ is an instruction to the job scheduler
+#$ -S /bin/bash       # the shell language when run via the job scheduler [IMPORTANT]
+#$ -cwd               # job should run in the current working directory
+#$ -N {experiment_name.replace('/', '_')} # set the name of the job
+#$ -j y               # STDERR and STDOUT should be joined
+#$ -o {sim_dir}/       # set the destination for the STDOUT file
+#$ -l mem_free={mem}     # job requires up to 1 GiB of RAM per slot
+#$ -l scratch=2G      # job requires up to 2 GiB of local /scratch space
+#$ -l h_rt={max_runtime}    # job requires up to this many hours of runtime
+#$ -r y               # if job crashes, it should be restarted
+#$ -q gpu.q           # use the gpu queue
 
-    ## load the required modules
-    module load Sali miniconda3
-    module load cuda/10.0.130
+## load the required modules
+module load CBI
+module load miniconda3/4.12.0-py39
+module load Sali
+module load cuda/10.0.130
 
-    ## print start time:
-    date
+## print start time:
+date
 
-    ## Run the simulation
-    conda activate easyMD
-    python3 -c \
-    "from easyMD import run_sim; \
-    run_sim({sim_dir}, continue_from_previous_sim={continue_from_previous_sim}, continue_sim_steps={continue_sim_steps})"
+## Run the simulation
+conda activate easyMD
+python3 -c \
+"from easyMD.utils import run_sim_local; \
+run_sim_local('{sim_dir}', continue_from_previous_sim={continue_from_previous_sim}, continue_sim_steps={continue_sim_steps})"
 
-    ## End-of-job summary, if running as a job
-    [[ -n "$JOB_ID" ]] && qstat -j "$JOB_ID"  # This is useful for debugging and usage purposes,
-                                            # e.g. "did my job exceed its memory request?"
+## End-of-job summary, if running as a job
+[[ -n "$JOB_ID" ]] && qstat -j "$JOB_ID"  # This is useful for debugging and usage purposes,
+                                        # e.g. "did my job exceed its memory request?"
 
-    ## print end time:
-    date
+## print end time:
+date
     ''' 
 
     with open(sim_dir / 'run_simulation.sh', 'w') as file:
@@ -203,11 +205,10 @@ def run_sim_wynton(sim_dir, continue_from_previous_sim=False, continue_sim_steps
 
     #Finally, let's queue the job:
     import subprocess
-    command = ['echo', str(sim_dir / 'run_simulation.sh')] #subprocess takes commands as a list of strings
+    command = ['qsub', '-cwd', str(sim_dir / 'run_simulation.sh')] #subprocess takes commands as a list of strings
     #result = subprocess.run(command, shell=True, capture_output=True, text=True)
     #output = result.stdout.strip()
     result = subprocess.run(command, capture_output=True)
     output = result.stdout.strip()
-    print(output)
-    print(result)
-    #print(result)
+    print(output.decode()) #turn from bytes to string and print
+    print("Use the command 'qstat' in the console to check the status of your job.")
