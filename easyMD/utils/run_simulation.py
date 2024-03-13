@@ -168,7 +168,7 @@ def run_sim_wynton(sim_dir, continue_from_previous_sim=False, continue_sim_steps
 #                     # lines starting with #$ is an instruction to the job scheduler
 #$ -S /bin/bash       # the shell language when run via the job scheduler [IMPORTANT]
 #$ -cwd               # job should run in the current working directory
-#$ -N {experiment_name.replace('/', '_')} # set the name of the job
+#$ -N sim_{experiment_name.replace('/', '_')} # set the name of the job
 #$ -j y               # STDERR and STDOUT should be joined
 #$ -o {sim_dir}/       # set the destination for the STDOUT file
 #$ -l mem_free={mem}     # job requires up to 1 GiB of RAM per slot
