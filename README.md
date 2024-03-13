@@ -39,11 +39,11 @@ Make a copy of the `prep_and_run_template.ipynb` notebook for your analysis, and
 ### Tips for Wynton:
 On Wynton, you must first load the conda and conda-stage modules:
 
-`module load CBI miniconda3`
+`module load CBI miniconda3/4.12.0-py39`
 
 `module load CBI conda-stage`
 
-Create the environment using `conda env create`, as above.
+Create the environment using `conda env create -f easyMD.yml`, as above.
 
 This can be painfully slow on Wynton, but in my experience, shouldn't take more than 20 minutes for this environment.
 
@@ -67,8 +67,15 @@ This notebook guides you through prepping and running a simulation - that means 
 
 Not all cells will need to be run. Under each section, where a cell is preceded by "OPTION", please only run the cell that matches your needs (e.g. Are you loading a local PDB file? Or from the database?)
 
+### Preparing Ligands:
+You can simulate ligands that are in your PDB by specifying the residue name (for example, 'BNZ') when preparing the structure.
+
+To use a ligand, your PDB file must have the correct hydrogens specified in the ligand structure (this is because, the PDB file does not store bond orders, so we cannot infer the correct number of hydrogens from only the PDB). I recommend doing this in PyMOL.
+
+Additionally, to make sure the bond orders are correct a template SDF file for your residue must be used. By default, the notebook will try to download a matching template from the PDB. If this does not work, you should manually load a matching SDF.
+
 ### Running simulations:
-If on Wynton, please don't run your long production simulations on the development nodes, since those are shared. Instead, use the appropriate cell to queue your simulation, then check back later and do analysis. (This feature is WIP).
+If on Wynton, please **don't** run your long production simulations on the development nodes, since those are shared. Instead, use the appropriate cell to queue your simulation, then check back later and do analysis.
 
 ## License
 
@@ -80,8 +87,8 @@ This project is licensed under the [MIT License](LICENSE).
 - [Project Repository](https://github.com/degrado-lab/easyMD)
 
 ## Work in Progress:
-- SUBMISSION ON WYNTON: Currently, the job submission script is for SLURM, and does not yet work on Wynton's SGE queue.
-- SMALL MOLECULES:      Will eventually use OpenFF to allow for parameterization for small-molecules. This is an important and missing feature.
+- MULTIPLE LIGAND TYPES: You will soon be able to provide a list of residue names (and optional SDF templates).
+- BETTER CONDA IMPLEMENTATION: I'm trying to make conda less of a pain on Wynton.
 
 ## References
 - nglview help: https://projects.volkamerlab.org/teachopencadd/talktorials/T017_advanced_nglview_usage.html
