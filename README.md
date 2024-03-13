@@ -45,7 +45,7 @@ On Wynton, you must first load the conda and conda-stage modules:
 
 Create the environment using `conda env create -f easyMD.yml`, as above.
 
-This can be painfully slow on Wynton, but in my experience, shouldn't take more than 20 minutes for this environment.
+This can be painfully slow on Wynton, but in my experience, shouldn't take more than an hour for this environment. I'm looking into ways to make this faster.
 
 Then, set up local staging using the following command (this makes things run faster on the cluster!):
 
@@ -68,7 +68,7 @@ This notebook guides you through prepping and running a simulation - that means 
 Not all cells will need to be run. Under each section, where a cell is preceded by "OPTION", please only run the cell that matches your needs (e.g. Are you loading a local PDB file? Or from the database?)
 
 ### Preparing Ligands:
-You can simulate ligands that are in your PDB by specifying the residue name (for example, 'BNZ') when preparing the structure.
+You can simulate ligands that are in your PDB by specifying the residue name (for example, 'BNZ') when preparing the structure. Currently there is a bug that only allows for one ligand type.
 
 To use a ligand, your PDB file must have the correct hydrogens specified in the ligand structure (this is because, the PDB file does not store bond orders, so we cannot infer the correct number of hydrogens from only the PDB). I recommend doing this in PyMOL.
 
