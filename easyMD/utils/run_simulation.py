@@ -54,7 +54,7 @@ def run_sim_local(sim_dir, continue_from_previous_sim=False, continue_sim_steps=
     ############################################
     ############### SETUP SYSTEM ###############
     ############################################
-
+    
     # Load the processed PDB:
     pdb_path = processed_dir / Path(input_pdb_file).name
     pdb = PDBFile(str(pdb_path))
@@ -185,6 +185,12 @@ module load cuda/10.0.130
 
 ## print start time:
 date
+
+## print all cuda devices:
+echo $CUDA_VISIBLE_DEVICES
+## make sure we only use the assigned GPU:
+export CUDA_VISIBLE_DEVICES=$SGE_GPU
+echo $CUDA_VISIBLE_DEVICES
 
 ## Run the simulation
 conda activate easyMD
