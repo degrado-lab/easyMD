@@ -1,0 +1,42 @@
+Bootstrap: docker
+From: pytorch/pytorch:{{ VERSION }}
+Stage: build
+
+%arguments
+    VERSION=2.2.1-cuda12.1-cudnn8-runtime
+
+%environment
+    export JUPYTER_PORT=54321
+
+%post
+    apt-get update && apt-get install -y git wget
+    git clone https://github.com/degrado-lab/easyMD.git
+    cd easyMD
+    conda env create -f easyMD.yml
+    source activate easyMD
+    pip install -e .
+
+%runscript
+    echo "Container was created $NOW"
+    echo "Arguments received: $*"
+    exec echo "$@"
+
+%startscript
+    source activate easyMD
+    jupyter notebook --port=$JUPYTER_PORT
+
+# %test
+#     conda activate easyMD
+#     if [ $? -eq 0 ]; then
+#        echo "EasyMD correctly installed."
+#     else
+#        echo "EasyMD not installed correctly."
+#        exit 1
+#     fi
+
+%labels
+    Author nicholas.freitas@ucsf.edu
+    Version v0.0.1
+
+%help
+    This container is used to host EasyMD, a tool for simple MD simulations in Jupyter with OpenMM.
