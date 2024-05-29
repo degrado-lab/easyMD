@@ -2,7 +2,7 @@ import nglview as nv
 import mdtraj as md
 
 def show_pdb(pdb_path, water=False, size=[1600, 800]):
-    view = nv.show_file(str(pdb_path))
+    view = nv.show_structure_file(str(pdb_path))
     view.clear_representations()
     view.add_representation('cartoon', selection='all', color='residueindex')
     #show heteroatoms larger:
