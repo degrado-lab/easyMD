@@ -1,38 +1,46 @@
 Bootstrap: docker
-From: pytorch/pytorch:{{ VERSION }}
+From: nvidia/cuda:{{ VERSION }}
 Stage: build
 
 %arguments
-    VERSION=2.2.1-cuda12.1-cudnn8-runtime
+    VERSION=12.3.2-base-ubuntu22.04
 
 %environment
+    #set jupyter port
     export JUPYTER_PORT=54321
 
-%post
+%post -c /bin/bash
+    # Update and install necessary packages
     apt-get update && apt-get install -y git wget
+
+    # Install Miniconda
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+    bash /tmp/miniconda.sh -b -p /opt/conda
+    rm /tmp/miniconda.sh
+    export PATH=/opt/conda/bin:$PATH
+    /opt/conda/bin/conda init
+    
+    #download easyMD with git:
     git clone https://github.com/degrado-lab/easyMD.git
     cd easyMD
-    conda env create -f easyMD.yml
-    source activate easyMD
-    pip install -e .
+
+    # Create a Conda environment and install EasyMD
+    /opt/conda/bin/conda env create -f easyMD.yml
+    source /opt/conda/etc/profile.d/conda.sh
+    /opt/conda/bin/conda activate /opt/conda/envs/easyMD
+    pip install .
 
 %runscript
+    #! /bin/bash
     echo "Container was created $NOW"
     echo "Arguments received: $*"
-    exec echo "$@"
-
-%startscript
-    source activate easyMD
+    source /opt/conda/etc/profile.d/conda.sh
+    conda activate /opt/conda/envs/easyMD
     jupyter notebook --port=$JUPYTER_PORT
 
-# %test
-#     conda activate easyMD
-#     if [ $? -eq 0 ]; then
-#        echo "EasyMD correctly installed."
-#     else
-#        echo "EasyMD not installed correctly."
-#        exit 1
-#     fi
+#%test
+    # Test Conda
+    #conda --version
 
 %labels
     Author nicholas.freitas@ucsf.edu
