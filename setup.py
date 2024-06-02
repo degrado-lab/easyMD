@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='easyMD',
@@ -8,6 +8,6 @@ setup(
     author='Nicholas Freitas',
     author_email='nicholas.freitas@ucsf.edu',
     license='MIT',
-    packages=['easyMD'],
+    packages=find_packages(),
     )
 
