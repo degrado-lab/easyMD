@@ -153,7 +153,7 @@ def run_sim_local(parameters_file, continue_sim=True, extend_sim=False, skip_pre
     #Turn off barostat:
     barostat.setFrequency(0)
     simulation.reporters.clear()
-    simulation.reporters.append(DCDReporter(  output_prod_file, reporting_interval, append=True))
+    simulation.reporters.append(DCDReporter(  output_prod_file, reporting_interval, append=skip_pre_production)) #this creates a new file only if we just did minimization and equilibration
     simulation.reporters.append(StateDataReporter(  sys.stdout, reporting_interval, step=True, potentialEnergy=True, temperature=True, append=True))
     simulation.reporters.append(CheckpointReporter( output_checkpoint_file, checkpoint_interval))
     simulation.step(production_steps)
