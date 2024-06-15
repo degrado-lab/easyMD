@@ -8,7 +8,7 @@ import sys
 import os
 import json
 
-def run_sim_local(parameters_file, pre_production=True, continue_from_previous_sim=False):
+def run_sim_local(parameters_file, continue_sim=True, extend_sim=False, skip_pre_production=False, force_no_gpu=False):
     '''
     Run a simulation using OpenMM.
 
@@ -16,8 +16,16 @@ def run_sim_local(parameters_file, pre_production=True, continue_from_previous_s
     ----------
     parameters_file : str
         The path to the parameters file.
-    pre_production : bool, optional
-        Whether to run minimization and equilibration steps. Default is True.
+    continue_sim : bool, optional
+        This will automatically continue a simulation from the last checkpoint file. This includes running all preproduction (unless specified otherwise) 
+        and production steps. This enables several jobs to be queued with the same jobscript, and they will continue after the previous. Default is True.
+    extend_sim: bool, optional
+        This will extend the simulation from the last checkpoint file, beyond what is specified in the parameters file. 
+        This will only run the production steps. Default is False. Not currently implemented
+    skip_pre_production : bool, optional
+        Whether to skip minimization and equilibration steps. Default is True.
+    force_no_gpu : bool, optional
+        Whether to force the simulation to run on the CPU. Default is False, and will cancel if GPU is not available.
     '''
 
     ############################################
@@ -51,6 +59,15 @@ def run_sim_local(parameters_file, pre_production=True, continue_from_previous_s
     if checkpoint_interval > production_steps: 
         checkpoint_interval = production_steps
 
+    ###########################################
+    ############### VERIFY GPU ################
+    ###########################################
+    import subprocess
+    if not force_no_gpu:
+        result = subprocess.run(['nvidia-smi'], capture_output=True)
+        assert result.returncode == 0, 'No GPU detected. \n\
+            Have you setup apptainer to use a GPU with the easyMD_setup.sh script?'
+
     ############################################
     ############### SETUP SYSTEM ###############
     ############################################
@@ -67,6 +84,10 @@ def run_sim_local(parameters_file, pre_production=True, continue_from_previous_s
     for ligand_file in input_ligand_files:
         if Path(ligand_file).suffix == '.sdf':
             print('Adding ligand {} to the forcefield.'.format(ligand_file))
+            # verify file exists:
+            if not Path(ligand_file).exists():
+                raise ValueError(f'Tried to add a ligand to the forcefield, but the file does not exist. Please check the path.\n\
+                                File Not Found: {ligand_file}')
             ligand = Molecule.from_file(ligand_file)
             forcefield.registerTemplateGenerator( GAFFTemplateGenerator(molecules=ligand).generator)
 
@@ -80,13 +101,10 @@ def run_sim_local(parameters_file, pre_production=True, continue_from_previous_s
     ############################################
     ############ CONTINUING SIM? ###############
     ############################################
-    if continue_from_previous_sim:
+    if continue_sim and Path(output_checkpoint_file).exists():
         # Load the checkpoint file
-        if not Path(output_checkpoint_file).exists():
-            raise ValueError(f'Tried to continue a simulation, but the checkpoint file does not exist. Please check the path.\n\
-                            File Not Found: {output_checkpoint_file}')
+        print('Continuing simulation from production checkpoint file...')
         simulation.loadCheckpoint(output_checkpoint_file)
-        print('Continuing simulation from checkpoint file...')
 
         # make sure to skip minimization and equilibration:
         if pre_production:
@@ -99,7 +117,7 @@ def run_sim_local(parameters_file, pre_production=True, continue_from_previous_s
         if current_step >= production_steps:
             print(f'Simulation has already completed {current_step} steps. Exiting...')
             return
-        
+    
         print(f'Continuing simulation from step {current_step}...')
         production_steps -= current_step
     else:
@@ -135,15 +153,15 @@ def run_sim_local(parameters_file, pre_production=True, continue_from_previous_s
     #Turn off barostat:
     barostat.setFrequency(0)
     simulation.reporters.clear()
-    simulation.reporters.append(DCDReporter(  output_prod_file, reporting_interval, append=continue_from_previous_sim))
-    simulation.reporters.append(StateDataReporter(  sys.stdout, reporting_interval, step=True, potentialEnergy=True, temperature=True, append=continue_from_previous_sim))
+    simulation.reporters.append(DCDReporter(  output_prod_file, reporting_interval, append=True))
+    simulation.reporters.append(StateDataReporter(  sys.stdout, reporting_interval, step=True, potentialEnergy=True, temperature=True, append=True))
     simulation.reporters.append(CheckpointReporter( output_checkpoint_file, checkpoint_interval))
     simulation.step(production_steps)
 
     print('Done!')
 
 
-def run_sim_wynton(sim_dir, continue_from_previous_sim=False, continue_sim_steps=None, mem='4G', max_runtime='2:00:00'):
+def run_sim_wynton(apptainer_path, parameters_file, mem='4G', max_runtime='2:00:00', repeat=1):
     '''
     Queue a simulation on UCSF Wynton using OpenMM.
     This method queues the job using the SGE scheduler.
@@ -161,22 +179,12 @@ def run_sim_wynton(sim_dir, continue_from_previous_sim=False, continue_sim_steps
     ############################################
     ############ GET SIM PARAMETERS ############
     ############################################
+    parameters = json.load(open(parameters_file))
+    
+    experiment_dir          = parameters['paths']['experiment_dir']
+    sim_dir                 = os.path.join(experiment_dir, parameters['paths']['outputs']['output_dir'])
 
-    ### Are we continuing a previous simulation?
-    if continue_from_previous_sim:
-        #make sure they've specified the number of steps to continue
-        if continue_sim_steps is None:
-            raise ValueError("When continuing a simulation, you must manually specify the number of steps to run using the 'continue_sim_steps' parameter.")
-
-    sim_dir = Path(sim_dir)
-    sim_parameters_file = sim_dir / 'simulation_dict.json'
-
-    _,_,_,_,_,_,        \
-    sim_dir,            \
-    _,                  \
-    experiment_name,    \
-    _,_,_,_             =  read_sim_parameters(sim_parameters_file)
-
+    experiment_name         = parameters['metadata']['experiment_name']
 
     ###################################################
     ################## RUN SCRIPT #####################
@@ -204,17 +212,12 @@ module load cuda/10.0.130
 ## print start time:
 date
 
-## print all cuda devices:
-echo $CUDA_VISIBLE_DEVICES
 ## make sure we only use the assigned GPU:
 export CUDA_VISIBLE_DEVICES=$SGE_GPU
 echo $CUDA_VISIBLE_DEVICES
 
 ## Run the simulation
-conda activate easyMD
-python3 -c \
-"from easyMD.utils import run_sim_local; \
-run_sim_local('{sim_dir}', continue_from_previous_sim={continue_from_previous_sim}, continue_sim_steps={continue_sim_steps})"
+/{apptainer_path} sim {parameters_file}
 
 ## End-of-job summary, if running as a job
 [[ -n "$JOB_ID" ]] && qstat -j "$JOB_ID"  # This is useful for debugging and usage purposes,
@@ -224,15 +227,25 @@ run_sim_local('{sim_dir}', continue_from_previous_sim={continue_from_previous_si
 date
     ''' 
 
-    with open(sim_dir / 'run_simulation.sh', 'w') as file:
+    sim_script = Path(sim_dir) / 'run_simulation.sh'
+    with open(sim_script, 'w') as file:
         file.write(bash_script)
 
     #Finally, let's queue the job:
     import subprocess
-    command = ['qsub', '-cwd', str(sim_dir / 'run_simulation.sh')] #subprocess takes commands as a list of strings
-    #result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    #output = result.stdout.strip()
-    result = subprocess.run(command, capture_output=True)
-    output = result.stdout.strip()
-    print(output.decode()) #turn from bytes to string and print
-    print("Use the command 'qstat' in the console to check the status of your job.")
+
+    previous_jid=None
+    for i in range(repeat):
+        #if i > 0: continue_from_previous_sim = True
+        if previous_jid is not None:
+            command = ['qsub', '-cwd', '-hold_jid', previous_jid, str(sim_script)]
+        else:
+            command = ['qsub', '-cwd', str(sim_script)] #subprocess takes commands as a list of strings
+        result = subprocess.run(command, capture_output=True)
+        if result.returncode != 0:
+            print(result.stderr)
+            break
+        output = result.stdout.strip()
+        print(output.decode()) #turn from bytes to string and print
+
+        previous_jid = output.decode().split()[2]

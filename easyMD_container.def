@@ -10,6 +10,10 @@ Stage: build
     export JUPYTER_PORT=54321
     export PATH=/opt/conda/bin:$PATH
 
+    #set required paths for Wynton's qsub command:
+    export PATH=/opt/sge/bin/lx-amd64:$PATH
+    export LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
+
 %post -c /bin/bash
     # Update and install necessary packages
     apt-get update && apt-get install -y git wget
@@ -26,7 +30,7 @@ Stage: build
     echo "conda activate /opt/conda/envs/easyMD" >> $APPTAINER_ENVIRONMENT
 
     #download easyMD with git:
-    git clone https://github.com/degrado-lab/easyMD.git
+    git clone -b container_refactor https://github.com/degrado-lab/easyMD.git
     cd easyMD
 
     # Create a Conda environment and install EasyMD
