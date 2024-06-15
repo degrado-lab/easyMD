@@ -21,6 +21,10 @@ Stage: build
     . /opt/conda/etc/profile.d/conda.sh
     conda init
     
+    # set to whatever your conda path is, I usually install to /opt
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> $APPTAINER_ENVIRONMENT
+    echo "conda activate /opt/conda/envs/easyMD" >> $APPTAINER_ENVIRONMENT
+
     #download easyMD with git:
     git clone https://github.com/degrado-lab/easyMD.git
     cd easyMD
@@ -32,15 +36,12 @@ Stage: build
 
 %runscript
     #! /bin/bash
-    echo "Container was created $NOW"
     echo "Arguments received: $*"
-    . /opt/conda/etc/profile.d/conda.sh
-    conda activate /opt/conda/envs/easyMD
-    jupyter notebook --port=$JUPYTER_PORT
+    python /easyMD/entrypoint.py $*
 
-#%test
+%test
     # Test Conda
-    #conda --version
+    conda --version
 
 %labels
     Author nicholas.freitas@ucsf.edu
