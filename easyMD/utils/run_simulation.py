@@ -107,9 +107,9 @@ def run_sim_local(parameters_file, continue_sim=True, extend_sim=False, skip_pre
         simulation.loadCheckpoint(output_checkpoint_file)
 
         # make sure to skip minimization and equilibration:
-        if pre_production:
+        if not skip_pre_production:
             print('Skipping minimization and equilibration steps...')
-        pre_production = False
+        skip_pre_production = True
 
         # How many steps have we already taken?
         current_step = simulation.currentStep
@@ -123,7 +123,7 @@ def run_sim_local(parameters_file, continue_sim=True, extend_sim=False, skip_pre
     else:
         simulation.context.setPositions(pdb.positions)
 
-    if pre_production:
+    if not skip_pre_production:
         ############################################
         ############ RUN MINIMIZATION ##############
         ############################################
