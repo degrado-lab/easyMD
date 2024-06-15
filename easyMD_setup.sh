@@ -1,5 +1,7 @@
 #!/bin/bash
 
+VERSION=0.1.0
+
 # Define the lines to be added to .bashrc
 bindings_setup='
 # >>> set up bindings for EasyMD Apptainer >>>
@@ -15,3 +17,9 @@ if ! grep -q "set up bindings for EasyMD Apptainer" ~/.bashrc; then
 else
     echo "Bindings for EasyMD Apptainer already present in .bashrc"
 fi
+
+# Source the .bashrc file to apply the changes
+source ~/.bashrc
+
+# Pull the EasyMD Apptainer image
+apptainer pull oras://docker.io/nicholasfreitas/easymd:$VERSION
