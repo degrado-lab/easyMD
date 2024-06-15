@@ -1,62 +1,78 @@
 from .io import read_sim_parameters
 from pathlib import Path
 from openmm.app import PDBFile, ForceField, Simulation, DCDReporter, StateDataReporter, CheckpointReporter, PME, HBonds
-from openmm import LangevinIntegrator
+from openmm import LangevinIntegrator, MonteCarloBarostat
 from openmm import unit as openmm_unit
 from openff.toolkit import Molecule
 import sys
+import os
+import json
 
-def run_sim_local(sim_dir, continue_from_previous_sim=False, continue_sim_steps=None):
+def run_sim_local(parameters_file, continue_sim=True, extend_sim=False, skip_pre_production=False, force_no_gpu=False):
     '''
     Run a simulation using OpenMM.
 
     Parameters
     ----------
-    sim_dir : str
-        The path to the simulation directory.
-    continue_from_previous_sim : bool, optional
-        Whether to continue from a previous simulation. Default is False.
-    continue_sim_steps : int, optional
-        The number of steps to continue from. Required if continue_from_previous_sim is True.
+    parameters_file : str
+        The path to the parameters file.
+    continue_sim : bool, optional
+        This will automatically continue a simulation from the last checkpoint file. This includes running all preproduction (unless specified otherwise) 
+        and production steps. This enables several jobs to be queued with the same jobscript, and they will continue after the previous. Default is True.
+    extend_sim: bool, optional
+        This will extend the simulation from the last checkpoint file, beyond what is specified in the parameters file. 
+        This will only run the production steps. Default is False. Not currently implemented
+    skip_pre_production : bool, optional
+        Whether to skip minimization and equilibration steps. Default is True.
+    force_no_gpu : bool, optional
+        Whether to force the simulation to run on the CPU. Default is False, and will cancel if GPU is not available.
     '''
 
     ############################################
     ############ GET SIM PARAMETERS ############
     ############################################
 
-    ### Are we continuing a previous simulation?
-    if continue_from_previous_sim:
-        #make sure they've specified the number of steps to continue
-        if continue_sim_steps is None:
-            raise ValueError("When continuing a simulation, you must manually specify the number of steps to run using the 'continue_sim_steps' parameter.")
+    parameters = json.load(open(parameters_file))
 
-    sim_dir = Path(sim_dir)
-    sim_parameters_file = sim_dir / 'simulation_dict.json'
+    minimization_steps      = parameters['simulation']['minimization_steps']
+    equilibration_steps     = parameters['simulation']['equilibration_steps']
+    production_steps        = parameters['simulation']['production_steps']
+    reporting_interval      = parameters['simulation']['reporting_interval']
+    checkpoint_interval     = parameters['simulation']['checkpoint_interval']
+    step_size               = parameters['simulation']['step_size']
+    temperature             = parameters['simulation']['temperature']
+    only_production         = parameters['simulation']['only_production']
+    forcefield_files        = parameters['simulation']['forcefield_files']
+    
+    experiment_dir          = parameters['paths']['experiment_dir']
+    input_dir               = os.path.join(experiment_dir, parameters['paths']['inputs']['input_dir'])
+    input_pdb_file          = os.path.join(input_dir, parameters['paths']['inputs']['input_pdb_file'])
+    input_ligand_files      = [os.path.join(input_dir, ligand_file) for ligand_file in parameters['paths']['inputs']['input_ligand_files']]
+    sim_dir                 = os.path.join(experiment_dir, parameters['paths']['outputs']['output_dir'])
+    output_minim_file       = os.path.join(sim_dir, parameters['paths']['outputs']['output_minim_file'])
+    output_eq_file          = os.path.join(sim_dir, parameters['paths']['outputs']['output_eq_file'])
+    output_prod_file        = os.path.join(sim_dir, parameters['paths']['outputs']['output_prod_file'])
+    output_checkpoint_file  = os.path.join(sim_dir, parameters['paths']['outputs']['output_checkpoint_file'])
 
-    minimization_steps, \
-    equilibration_steps,\
-    production_steps,   \
-    reporting_interval, \
-    checkpoint_interval,\
-    input_pdb_file,     \
-    sim_dir,            \
-    processed_dir,      \
-    experiment_name,    \
-    forcefield_files,   \
-    step_size,          \
-    temperature,        \
-    only_production      =  read_sim_parameters(sim_parameters_file)
 
     #double check: If checkpoint_interval is larger than production_steps, set it to production_steps
     if checkpoint_interval > production_steps: 
         checkpoint_interval = production_steps
 
+    ###########################################
+    ############### VERIFY GPU ################
+    ###########################################
+    import subprocess
+    if not force_no_gpu:
+        result = subprocess.run(['nvidia-smi'], capture_output=True)
+        assert result.returncode == 0, 'No GPU detected. \n\
+            Have you setup apptainer to use a GPU with the easyMD_setup.sh script?'
+
     ############################################
     ############### SETUP SYSTEM ###############
     ############################################
-    
     # Load the processed PDB:
-    pdb_path = processed_dir / Path(input_pdb_file).name
+    pdb_path = input_pdb_file
     pdb = PDBFile(str(pdb_path))
 
     # Set up the Forcefield:
@@ -64,68 +80,88 @@ def run_sim_local(sim_dir, continue_from_previous_sim=False, continue_sim_steps=
     
     # Are we using ligands? If so, add their templates to the forcefield.
     from openmmforcefields.generators import GAFFTemplateGenerator
-    ligand_dir = processed_dir / 'ligands'
-    if ligand_dir.exists():
-        #iterate over files:
-        for ligand_file in ligand_dir.iterdir():
-            if ligand_file.suffix == '.sdf':
-                ligand = Molecule.from_file(ligand_file)
-                forcefield.registerTemplateGenerator( GAFFTemplateGenerator(molecules=ligand).generator)
 
-    # Create simulation:
+    for ligand_file in input_ligand_files:
+        if Path(ligand_file).suffix == '.sdf':
+            print('Adding ligand {} to the forcefield.'.format(ligand_file))
+            # verify file exists:
+            if not Path(ligand_file).exists():
+                raise ValueError(f'Tried to add a ligand to the forcefield, but the file does not exist. Please check the path.\n\
+                                File Not Found: {ligand_file}')
+            ligand = Molecule.from_file(ligand_file)
+            forcefield.registerTemplateGenerator( GAFFTemplateGenerator(molecules=ligand).generator)
+
+    #Create system:
     system = forcefield.createSystem(pdb.topology, nonbondedMethod=PME, nonbondedCutoff=1.0*openmm_unit.nanometer, constraints=HBonds)
     integrator = LangevinIntegrator(temperature, 1/openmm_unit.picosecond, step_size)
+    barostat = MonteCarloBarostat(1*openmm_unit.atmosphere, temperature, 25)
+    system.addForce(barostat)
     simulation = Simulation(pdb.topology, system, integrator)
-
-    # Are we continuing a simulation from a previous run?
-    if continue_from_previous_sim:
+    
+    ############################################
+    ############ CONTINUING SIM? ###############
+    ############################################
+    if continue_sim and Path(output_checkpoint_file).exists():
         # Load the checkpoint file
-        checkpoint_file = sim_dir / (str(Path(input_pdb_file).stem) + '_prod.chk')
-        if not checkpoint_file.exists():
-            raise ValueError(f'Tried to continue a simulation, but the checkpoint file does not exist. Please check the path.\n\
-                            File Not Found: {checkpoint_file}')
-        simulation.loadCheckpoint(str(checkpoint_file))
-        print('Continuing simulation from checkpoint file...')
+        print('Continuing simulation from production checkpoint file...')
+        simulation.loadCheckpoint(output_checkpoint_file)
+
         # make sure to skip minimization and equilibration:
-        only_production = True
+        if not skip_pre_production:
+            print('Skipping minimization and equilibration steps...')
+        skip_pre_production = True
+
+        # How many steps have we already taken?
+        current_step = simulation.currentStep
+
+        if current_step >= production_steps:
+            print(f'Simulation has already completed {current_step} steps. Exiting...')
+            return
+    
+        print(f'Continuing simulation from step {current_step}...')
+        production_steps -= current_step
     else:
         simulation.context.setPositions(pdb.positions)
-        
 
-    if not only_production:
+    if not skip_pre_production:
         ############################################
         ############ RUN MINIMIZATION ##############
         ############################################
         print('Minimizing energy...')
+        
+        simulation.context.setPositions(pdb.positions)
         simulation.minimizeEnergy(maxIterations=minimization_steps)
 
         # write out the minimized pdb
         print('Writing out the minimized pdb...')
-        PDBFile.writeFile(simulation.topology, simulation.context.getState(getPositions=True).getPositions(), str(sim_dir / (str(Path(input_pdb_file).stem) + '_minim.pdb')))
+        PDBFile.writeFile(simulation.topology, simulation.context.getState(getPositions=True).getPositions(), output_minim_file)
 
         ############################################
         ############ RUN EQUILIBRATION #############
         ############################################
         print('Running equilibration...')
         simulation.context.setVelocitiesToTemperature(temperature)
-        simulation.reporters.append(DCDReporter(sim_dir / (str(Path(input_pdb_file).stem) + '_equil.dcd'), reporting_interval))
+        simulation.reporters.append(DCDReporter(output_eq_file, reporting_interval))
         simulation.reporters.append(StateDataReporter(sys.stdout, 1000, step=True, potentialEnergy=True, temperature=True))
         simulation.step(equilibration_steps)
+        
 
     ############################################
     ############ RUN PRODUCTION ################
     ############################################
     print('Running production...')
+    #Turn off barostat:
+    barostat.setFrequency(0)
     simulation.reporters.clear()
-    simulation.reporters.append(DCDReporter(        sim_dir / (str(Path(input_pdb_file).stem) + '_prod.dcd'), reporting_interval, append=continue_from_previous_sim))
-    simulation.reporters.append(StateDataReporter(  sys.stdout, reporting_interval, step=True, potentialEnergy=True, temperature=True, append=continue_from_previous_sim))
-    simulation.reporters.append(CheckpointReporter( str(sim_dir / (str(Path(input_pdb_file).stem) + '_prod.chk')), checkpoint_interval))
+    simulation.reporters.append(DCDReporter(  output_prod_file, reporting_interval, append=skip_pre_production)) #this creates a new file only if we just did minimization and equilibration
+    simulation.reporters.append(StateDataReporter(  sys.stdout, reporting_interval, step=True, potentialEnergy=True, temperature=True, append=True))
+    simulation.reporters.append(CheckpointReporter( output_checkpoint_file, checkpoint_interval))
     simulation.step(production_steps)
 
     print('Done!')
 
 
-def run_sim_wynton(sim_dir, continue_from_previous_sim=False, continue_sim_steps=None, mem='4G', max_runtime='2:00:00'):
+def run_sim_wynton(apptainer_path, parameters_file, mem='4G', max_runtime='2:00:00', repeat=1):
     '''
     Queue a simulation on UCSF Wynton using OpenMM.
     This method queues the job using the SGE scheduler.
@@ -143,22 +179,12 @@ def run_sim_wynton(sim_dir, continue_from_previous_sim=False, continue_sim_steps
     ############################################
     ############ GET SIM PARAMETERS ############
     ############################################
+    parameters = json.load(open(parameters_file))
+    
+    experiment_dir          = parameters['paths']['experiment_dir']
+    sim_dir                 = os.path.join(experiment_dir, parameters['paths']['outputs']['output_dir'])
 
-    ### Are we continuing a previous simulation?
-    if continue_from_previous_sim:
-        #make sure they've specified the number of steps to continue
-        if continue_sim_steps is None:
-            raise ValueError("When continuing a simulation, you must manually specify the number of steps to run using the 'continue_sim_steps' parameter.")
-
-    sim_dir = Path(sim_dir)
-    sim_parameters_file = sim_dir / 'simulation_dict.json'
-
-    _,_,_,_,_,_,        \
-    sim_dir,            \
-    _,                  \
-    experiment_name,    \
-    _,_,_,_             =  read_sim_parameters(sim_parameters_file)
-
+    experiment_name         = parameters['metadata']['experiment_name']
 
     ###################################################
     ################## RUN SCRIPT #####################
@@ -186,17 +212,12 @@ module load cuda/10.0.130
 ## print start time:
 date
 
-## print all cuda devices:
-echo $CUDA_VISIBLE_DEVICES
 ## make sure we only use the assigned GPU:
 export CUDA_VISIBLE_DEVICES=$SGE_GPU
 echo $CUDA_VISIBLE_DEVICES
 
 ## Run the simulation
-conda activate easyMD
-python3 -c \
-"from easyMD.utils import run_sim_local; \
-run_sim_local('{sim_dir}', continue_from_previous_sim={continue_from_previous_sim}, continue_sim_steps={continue_sim_steps})"
+/{apptainer_path} sim {parameters_file}
 
 ## End-of-job summary, if running as a job
 [[ -n "$JOB_ID" ]] && qstat -j "$JOB_ID"  # This is useful for debugging and usage purposes,
@@ -206,15 +227,25 @@ run_sim_local('{sim_dir}', continue_from_previous_sim={continue_from_previous_si
 date
     ''' 
 
-    with open(sim_dir / 'run_simulation.sh', 'w') as file:
+    sim_script = Path(sim_dir) / 'run_simulation.sh'
+    with open(sim_script, 'w') as file:
         file.write(bash_script)
 
     #Finally, let's queue the job:
     import subprocess
-    command = ['qsub', '-cwd', str(sim_dir / 'run_simulation.sh')] #subprocess takes commands as a list of strings
-    #result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    #output = result.stdout.strip()
-    result = subprocess.run(command, capture_output=True)
-    output = result.stdout.strip()
-    print(output.decode()) #turn from bytes to string and print
-    print("Use the command 'qstat' in the console to check the status of your job.")
+
+    previous_jid=None
+    for i in range(repeat):
+        #if i > 0: continue_from_previous_sim = True
+        if previous_jid is not None:
+            command = ['qsub', '-cwd', '-hold_jid', previous_jid, str(sim_script)]
+        else:
+            command = ['qsub', '-cwd', str(sim_script)] #subprocess takes commands as a list of strings
+        result = subprocess.run(command, capture_output=True)
+        if result.returncode != 0:
+            print(result.stderr)
+            break
+        output = result.stdout.strip()
+        print(output.decode()) #turn from bytes to string and print
+
+        previous_jid = output.decode().split()[2]
