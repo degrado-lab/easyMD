@@ -32,6 +32,7 @@ Once extracted, you will see three files:
 On Wynton, run the setup script with the following commands:
 
 `chmod u+x easyMD_setup.sh`
+
 `./easyMD_setup.sh`
 
 EasyMD runs as a virtual machine, with all software pre-installed. This is managed by the software Apptainer, which Wynton already has installed.
