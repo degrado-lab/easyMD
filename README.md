@@ -21,11 +21,12 @@ The simulations can be run locally, or queued to a cluster from within the noteb
 
 ## Installation
 
-First, download and extract the latest release file onto your computer or compute cluster.
+First, download and extract the latest [release file](https://github.com/degrado-lab/easyMD/releases/latest), easyMD_vX.X.X.tar.gz, onto your computer or compute cluster.
+
+Extract the directory with `tar xzf easyMD_vX.X.X.tar.gz` 
 
 Once extracted, you will see three files:
-- easyMD.sif : this is the Apptainer virtual machine which contains all of the easyMD software.
-- easyMD_setup.sh: this script configures your Wynton profile to run properly.
+- easyMD_setup.sh: this script configures your Wynton profile to run properly, and dowloads the virtual machine containing all the software.
 - prep_and_run_template.ipynb: A template Jupyter notebook to prepare and begin an MD simulation.
 
 On Wynton, run the setup script with the following commands:
@@ -38,6 +39,8 @@ If you wish to run this on your personal computer, install Apptainer as describe
 
 ## Usage
 This code requires a GPU to run efficiently. You should install and run the notebook on a machine with a GPU, like a personal computer or the gpu development nodes on Wynton.
+
+Launching this virtual machine will load up a Jupyter server that you can use to prepare a simulation with the provided notebook. When you're finished, the notebook will let you launch queue the simulations on Wynton.
 
 ### Setting up simulations with the notebook:
 To prepare a simulation using the provided Jupyter notebook, first make a copy of it with a memorable name.
