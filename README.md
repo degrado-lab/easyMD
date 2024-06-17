@@ -47,7 +47,7 @@ Launching this virtual machine will load up a Jupyter server that you can use to
 To prepare a simulation using the provided Jupyter notebook, first make a copy of it with a memorable name.
 
 Next, we will start the Jupyter server with the following command:
-`./easyMD.sif notebook`
+`./easymd_vX.X.X.sif notebook`
 
 This will launch the server. In the output you will see the address of the server, which looks like `http://localhost:54321/tree?token=...`. 
 You may connect to this server using your web browser or in VS Code.
@@ -57,6 +57,8 @@ This notebook guides you through prepping and running a simulation - that means 
 This notebook is not meant to be a black box: where useful, I package up some extra code under the `utils/` directory, but I try to leave as much of the code as possible visible to the user for easy editing.
 
 Not all cells will need to be run. Under each section, where a cell is preceded by "OPTION", please only run the cell that matches your needs (e.g. Are you loading a local PDB file? Or from the database?)
+
+Note: If you have an error about the software not recognizing `nvidia-smi`, this means the container is not seeing your devices GPU. Please restart the container, manually telling it to enable the GPU using the command: `apptainer run --nv easymd_vX.X.X.sif notebook`
 
 ### Preparing Ligands:
 You can simulate ligands that are in your PDB by specifying the residue name (for example, 'BNZ') when preparing the structure. Currently there is a bug that only allows for one ligand type.
