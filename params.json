@@ -1,0 +1,21 @@
+{
+    "PREP": {
+        "pH":                       7.0,
+        "ion_concentration_MOLAR":  0.15,
+        "padding_ANGSTROM":         10.0
+    },
+    "SIMULATION": {
+        "minimization_length_NS":  0.01,
+        "equilibration_length_NS": 0.01,
+        "simulation_length_NS":    0.01,
+        "step_size_FS":            2,
+
+        "temperature_K":          300, 
+        "pressure_ATM":           1.0,
+        "forcefield":           ["amber14-all.xml", "amber14/tip3p.xml"],
+        
+        "save_frame_interval_NS":  0.01, 
+        "checkpoint_interval_NS":  0.01
+
+    }
+}
