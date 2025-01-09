@@ -6,30 +6,31 @@ from pdbfixer import PDBFixer
 from .data import common_residues
 from rdkit import Chem
 from Bio.PDB import PDBParser, PDBIO
-
+from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def prepare_protein_pdb(input_path: str, fix: bool) -> str:
+def prepare_protein_pdb(input_path: str, fix: bool, temp_dir: str = '.') -> str:
     """
     - Converts mmCIF to PDB if needed
     - Optionally uses PDBFixer to fix missing atoms
     - Returns final path to a PDB file
     """
+    temp_dir = Path(temp_dir)
     if input_path.endswith(".cif"):
         logger.info("Converting CIF to PDB.")
-        pdb_path = "protein.pdb"  # or some temp filename
-        cif_to_pdb(input_path, pdb_path)
+        pdb_path = temp_dir / "protein.pdb"  # or some temp filename
+        cif_to_pdb(input_path, str(pdb_path))
     else:
         pdb_path = input_path
 
     if fix:
         logger.info("Fixing PDB with PDBFixer.")
-        protein_pdb_fixed_path = "protein_fixed.pdb"
-        fix_pdb(pdb_path, protein_pdb_fixed_path)
-        return protein_pdb_fixed_path
+        protein_pdb_fixed_path = temp_dir / "protein_fixed.pdb"
+        fix_pdb(str(pdb_path), str(protein_pdb_fixed_path))
+        return str(protein_pdb_fixed_path)
 
-    return pdb_path
+    return str(pdb_path)
 
 
 def cif_to_pdb(cif_file, pdb_file):

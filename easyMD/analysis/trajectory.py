@@ -4,6 +4,7 @@ import MDAnalysis as mda
 from MDAnalysis.coordinates.memory import MemoryReader
 import numpy as np
 from tqdm import tqdm
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ def reduce_frames(top_path, traj_path, reduced_traj_path, num_frames):
     """
 
     u = mda.Universe(top_path, traj_path)
-    print("Number of frames in the trajectory:", len(u.trajectory))
+    logger.info(f"Number of frames in the trajectory: {len(u.trajectory)}")
 
     all_atoms = u.select_atoms('all')
 
@@ -46,10 +47,12 @@ def create_rewrapped_universe(u, selection='protein'):
     Creates a new universe with rewrapped positions for all frames.
     Parameters:
     - u: MDAnalysis Universe object
+    - selection: selection string for the group of atoms to center on (default: 'protein')
     Returns:
     - new_u: MDAnalysis Universe object with rewrapped positions
     """
     new_positions = []  # To store rewrapped positions for all frames
+    new_dimensions = [] # To store dimensions for all frames
 
     # Iterate through each frame and apply re-wrapping
     for ts in tqdm(u.trajectory):
@@ -57,7 +60,7 @@ def create_rewrapped_universe(u, selection='protein'):
         center = u.select_atoms(selection).center_of_geometry()
         wrapped_positions = rewrap_positions(ts.positions, center, box)
         new_positions.append(wrapped_positions)
-
+        new_dimensions.append(ts.dimensions)
     # Convert list of positions to a 3D numpy array
     new_positions_array = np.array(new_positions)
 
@@ -65,9 +68,13 @@ def create_rewrapped_universe(u, selection='protein'):
     new_u = mda.Universe(u.filename, u.trajectory.filename)
     new_u.load_new(new_positions_array, format=MemoryReader)
 
+    # # Set the dimensions for each frame, from previous universe
+    # for ts in new_u.trajectory:
+    #     ts.dimensions = new_dimensions[ts.frame]
+
     return new_u
 
-def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path):
+def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path, perform_initial_rewrap=True, selection='protein'):
     """
     Rewrap the trajectory within the periodic boundaries.
     Parameters:
@@ -75,45 +82,74 @@ def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path):
     - traj_path: path to the trajectory file (DCD)
     - rewrapped_traj_path: path to save the rewrapped trajectory file (DCD)
     """
-    try:
-        # Add debug information
-        logger.info(f"Loading trajectory from {traj_path}")
-        logger.info(f"Using topology from {top_path}")
-        
-        # Try loading with topology_format explicitly set for OpenMM PDB
-        u = mda.Universe(
-            top_path, 
-            traj_path,
-            topology_format='PDB',
-            format='DCD',
-            permissive=True
-        )
-        
-        logger.info(f"Successfully loaded universe with {len(u.atoms)} atoms")
-        logger.info(f"Number of frames: {len(u.trajectory)}")
-        
-        # Create a new universe with rewrapped atoms
-        rewrapped_u = create_rewritten_universe(u)
-        
-        # Save the rewrapped trajectory
-        with mda.Writer(rewritten_traj_path, rewrapped_u.atoms.n_atoms) as W:
-            for ts in rewrapped_u.trajectory:
-                W.write(rewritten_u.atoms)
-                
-    except Exception as e:
-        logger.error(f"Error loading trajectory: {str(e)}")
-        # Try alternative loading method
-        try:
-            u = mda.Universe(
-                top_path, 
-                traj_path,
-                in_memory=True,
-                guess_bonds=True
-            )
-        except Exception as e:
-            logger.error(f"Both loading attempts failed. Final error: {str(e)}")
-            raise
+    # Add debug information
+    logger.info(f"Loading trajectory from {traj_path}")
+    logger.info(f"Using topology from {top_path}")
+    
+    # Try loading with topology_format explicitly set for OpenMM PDB
+    u = mda.Universe(
+        top_path, 
+        traj_path,
+        topology_format='PDB',
+        format='DCD',
+        permissive=True
+    )
 
+    logger.info(f"Successfully loaded universe with {len(u.atoms)} atoms")
+    logger.info(f"Number of frames: {len(u.trajectory)}")
+    
+    # We'll initially rewrap on the first chain. This should push everything roughly into the box.
+    if perform_initial_rewrap:
+        logger.info("Performing initial rewrap on the first chain...")
+        initial_rewrapped_u = create_rewrapped_universe(u, selection='segid A')
+        # Make a named temporary file:
+        temp_dcd = tempfile.NamedTemporaryFile(delete=False, suffix='.dcd').name
+
+        logger.info(f"Saving initial rewrap to temporary file: {temp_dcd}")
+        with mda.Writer(temp_dcd, initial_rewrapped_u.atoms.n_atoms) as W:
+            for ts in initial_rewrapped_u.trajectory:
+                W.write(initial_rewrapped_u.atoms)
+        
+        # Reload from temporary file to ensure clean state
+        initial_rewrapped_u = mda.Universe(top_path, temp_dcd)
+    else:
+        logger.info("Skipping initial rewrap.")
+        initial_rewrapped_u = u
+    
+    # Then, we rewrap on the chosen selection.
+    rewrapped_u = create_rewrapped_universe(initial_rewrapped_u, selection=selection)
+
+    # Save the rewrapped trajectory
+    with mda.Writer(rewrapped_traj_path, rewrapped_u.atoms.n_atoms) as W:
+        for ts in rewrapped_u.trajectory:
+            W.write(rewrapped_u.atoms)
+    
+    # Calculate center of box for each frame
+    # box_centers = []
+    # distances = []
+    # ca_atoms = rewrapped_u.select_atoms('protein and name CA')
+    
+    # logger.info(f"Calculating average distances for {len(ca_atoms)} CA atoms")
+    # for ts in tqdm(rewrapped_u.trajectory):
+    #     box_center = ts.dimensions[:3] / 2  # Get box center coordinates
+    #     box_centers.append(box_center)
+        
+    #     # Calculate distances from each CA to box center
+    #     frame_distances = []
+    #     for ca in ca_atoms.positions:
+    #         dist = np.linalg.norm(ca - box_center)
+    #         frame_distances.append(dist)
+    #     distances.append(frame_distances)
+    
+    # # Convert to numpy array for calculations
+    # distances = np.array(distances)
+    
+    # # Calculate average distance per frame
+    # avg_distances = np.mean(distances, axis=1)
+    # overall_avg = np.mean(avg_distances)
+    
+    # logger.info(f"Average distance from box center: {overall_avg:.2f} Angstroms")
+    
 def align_trajectory(top_path, traj_path, aligned_traj_path, selection='protein and name CA'):
     """
     Align the trajectory to a reference structure.
@@ -125,7 +161,7 @@ def align_trajectory(top_path, traj_path, aligned_traj_path, selection='protein 
     u = mda.Universe(top_path, traj_path)
 
     # Step 1: Calculate the average structure of the protein, as an alignment reference.
-    print("Calculating the average structure of the protein...")
+    logger.info("Calculating the average structure of the protein...")
     from MDAnalysis.analysis import align
     average = align.AverageStructure(u, u, select=selection,
                                     ref_frame=0,
@@ -143,4 +179,4 @@ def align_trajectory(top_path, traj_path, aligned_traj_path, selection='protein 
     aligner.run()
 
     u = mda.Universe(top_path, aligned_traj_path)
-    print("Number of frames in the trajectory:", len(u.trajectory))
+    logger.info(f"Number of frames in the trajectory: {len(u.trajectory)}")

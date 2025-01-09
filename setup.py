@@ -13,7 +13,7 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [
-            'easyMD=easyMD.cli:init_cli',
+            'easymd=easyMD.cli:main',
         ],
     },
     classifiers=[
@@ -23,5 +23,16 @@ setup(
     ],
     python_requires='>=3.10',
     install_requires=[
+    'openmm',
+    'MDAnalysis',
+    'numpy',
+    'rdkit',
+    'biopython',
+    'tqdm',
+    'requests',
+    'termol'
     ],
 )
+
+#'openff-toolkit',
+#'openmmforcefields',
