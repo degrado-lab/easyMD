@@ -25,14 +25,16 @@ def run_simulation(simulation: app.Simulation, output_file: str, duration: unit.
     # How many steps to run?
     relax_steps = int(relax_duration / time_step)
     prod_steps = int(duration / time_step)
-    output_frequency = int(output_frequency / time_step)
+    output_frequency_steps = int(output_frequency / time_step)
+
+    logger.info('Duration: {duration} \n Output Frequency: {output_frequency} ')
 
     if energy_minimize:
         logger.info("Minimizing energy...")
         simulation.minimizeEnergy()
-
+    
     # Write the output file:
-    simulation.reporters.append(app.StateDataReporter(stdout, output_frequency, step=True, potentialEnergy=True, temperature=True, volume=True, density=True))
+    simulation.reporters.append(app.StateDataReporter(stdout, output_frequency_steps, step=True, potentialEnergy=True, temperature=True, volume=True, density=True))
     
     # Equilibration is NVT, then NPT
     if relax:
@@ -46,6 +48,7 @@ def run_simulation(simulation: app.Simulation, output_file: str, duration: unit.
         simulation.step(int( relax_steps / 2))
 
     # Add the DCD reporter and run the production simulation:
-    simulation.reporters.append(app.DCDReporter(output_file, output_frequency))
+    logger.info("Running production simulation...")
+    simulation.reporters.append(app.DCDReporter(output_file, output_frequency_steps))
     simulation.step(prod_steps)
     

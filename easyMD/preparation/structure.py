@@ -18,14 +18,14 @@ def prepare_protein_pdb(input_path: str, fix: bool, temp_dir: str = '.') -> str:
     """
     temp_dir = Path(temp_dir)
     if input_path.endswith(".cif"):
-        logger.info("Converting CIF to PDB.")
+        logger.debug("Converting CIF to PDB.")
         pdb_path = temp_dir / "protein.pdb"  # or some temp filename
         cif_to_pdb(input_path, str(pdb_path))
     else:
         pdb_path = input_path
 
     if fix:
-        logger.info("Fixing PDB with PDBFixer.")
+        logger.debug("Fixing PDB with PDBFixer.")
         protein_pdb_fixed_path = temp_dir / "protein_fixed.pdb"
         fix_pdb(str(pdb_path), str(protein_pdb_fixed_path))
         return str(protein_pdb_fixed_path)
@@ -325,7 +325,7 @@ def extract_residue_from_pdb(input_pdb: str, chain_id: str, residue_number: int,
         for cl in updated_conect_lines:
             out_f.write(cl + "\n")
 
-    logger.info(f"Extracted residue {residue_number} from chain {chain_id} saved to {output_pdb}")
+    logger.debug(f"Extracted residue {residue_number} from chain {chain_id} saved to {output_pdb}")
 
 def find_ligand_chain_and_resid(pdb_topology, residue_name):
     """

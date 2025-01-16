@@ -7,6 +7,8 @@ from . import structure, ligand, forcefield_utils, rcsb
 from .data import common_residues
 
 logger = logging.getLogger(__name__)
+# This will suppress INFO warnings from openmm forcefields. This may be bad!
+logging.getLogger("openmmforcefields.generators.template_generators").setLevel(logging.WARNING)
 
 def create_modeller_and_solvate(pdb_topology, pdb_positions, forcefield, pdb_file, water_model,
                                 non_standard_residues,
@@ -47,7 +49,7 @@ def create_modeller_and_solvate(pdb_topology, pdb_positions, forcefield, pdb_fil
     for res_name, pdb_file in non_standard_residue_dict.items():
         for ligand_sdf_path in ligand_sdf_paths:
             if ligand.matches_residue_to_sdf(pdb_file, ligand_sdf_path):
-                logger.info("Matched ligand %s to residue %s." % (ligand_sdf_path, res_name))
+                logger.debug("Matched ligand %s to residue %s." % (ligand_sdf_path, res_name))
                 residue_pdb_sdf_dict[pdb_file] = (ligand_sdf_path, res_name)
                 break
         else:
@@ -63,14 +65,14 @@ def create_modeller_and_solvate(pdb_topology, pdb_positions, forcefield, pdb_fil
             xml_temp_file.name,
             residue_name=res_name
         )
-        logger.info("Loading hydrogen definitions for ligand %s." % ligand_sdf_path)
+        logger.debug("Loading hydrogen definitions for ligand %s." % ligand_sdf_path)
         modeller.loadHydrogenDefinitions(xml_temp_file.name)
-    
+
     # Add missing hydrogens for entire complex
     modeller.addHydrogens(forcefield)
 
     # Add solvent
-    logger.info("Adding solvent (model=%s, ionic_strength=%s, padding=%s).",
+    logger.debug("Adding solvent (model=%s, ionic_strength=%s, padding=%s).",
                 water_model, ionic_strength, box_padding)
     modeller.addSolvent(forcefield, model=water_model,
                         ionicStrength=ionic_strength, padding=box_padding)
@@ -81,7 +83,7 @@ def create_openmm_system(modeller, forcefield):
     """
     Calls forcefield.createSystem(...) with typical settings to produce an OpenMM System.
     """
-    logger.info("Creating OpenMM System.")
+    logger.debug("Creating OpenMM System.")
     system = forcefield.createSystem(
         modeller.topology,
         nonbondedMethod=app.PME,

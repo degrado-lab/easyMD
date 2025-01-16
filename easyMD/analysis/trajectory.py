@@ -19,7 +19,7 @@ def reduce_frames(top_path, traj_path, reduced_traj_path, num_frames):
     """
 
     u = mda.Universe(top_path, traj_path)
-    logger.info(f"Number of frames in the trajectory: {len(u.trajectory)}")
+    logger.debug(f"Number of frames in the trajectory: {len(u.trajectory)}")
 
     all_atoms = u.select_atoms('all')
 
@@ -83,8 +83,8 @@ def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path, perform_initial_
     - rewrapped_traj_path: path to save the rewrapped trajectory file (DCD)
     """
     # Add debug information
-    logger.info(f"Loading trajectory from {traj_path}")
-    logger.info(f"Using topology from {top_path}")
+    logger.debug(f"Loading trajectory from {traj_path}")
+    logger.debug(f"Using topology from {top_path}")
     
     # Try loading with topology_format explicitly set for OpenMM PDB
     u = mda.Universe(
@@ -95,17 +95,17 @@ def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path, perform_initial_
         permissive=True
     )
 
-    logger.info(f"Successfully loaded universe with {len(u.atoms)} atoms")
-    logger.info(f"Number of frames: {len(u.trajectory)}")
+    logger.debug(f"Successfully loaded universe with {len(u.atoms)} atoms")
+    logger.debug(f"Number of frames: {len(u.trajectory)}")
     
     # We'll initially rewrap on the first chain. This should push everything roughly into the box.
     if perform_initial_rewrap:
-        logger.info("Performing initial rewrap on the first chain...")
+        logger.debug("Performing initial rewrap on the first chain...")
         initial_rewrapped_u = create_rewrapped_universe(u, selection='segid A')
         # Make a named temporary file:
         temp_dcd = tempfile.NamedTemporaryFile(delete=False, suffix='.dcd').name
 
-        logger.info(f"Saving initial rewrap to temporary file: {temp_dcd}")
+        logger.debug(f"Saving initial rewrap to temporary file: {temp_dcd}")
         with mda.Writer(temp_dcd, initial_rewrapped_u.atoms.n_atoms) as W:
             for ts in initial_rewrapped_u.trajectory:
                 W.write(initial_rewrapped_u.atoms)
@@ -113,7 +113,7 @@ def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path, perform_initial_
         # Reload from temporary file to ensure clean state
         initial_rewrapped_u = mda.Universe(top_path, temp_dcd)
     else:
-        logger.info("Skipping initial rewrap.")
+        logger.debug("Skipping initial rewrap.")
         initial_rewrapped_u = u
     
     # Then, we rewrap on the chosen selection.
@@ -129,7 +129,7 @@ def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path, perform_initial_
     # distances = []
     # ca_atoms = rewrapped_u.select_atoms('protein and name CA')
     
-    # logger.info(f"Calculating average distances for {len(ca_atoms)} CA atoms")
+    # logger.debug(f"Calculating average distances for {len(ca_atoms)} CA atoms")
     # for ts in tqdm(rewrapped_u.trajectory):
     #     box_center = ts.dimensions[:3] / 2  # Get box center coordinates
     #     box_centers.append(box_center)
@@ -148,7 +148,7 @@ def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path, perform_initial_
     # avg_distances = np.mean(distances, axis=1)
     # overall_avg = np.mean(avg_distances)
     
-    # logger.info(f"Average distance from box center: {overall_avg:.2f} Angstroms")
+    # logger.debug(f"Average distance from box center: {overall_avg:.2f} Angstroms")
     
 def align_trajectory(top_path, traj_path, aligned_traj_path, selection='protein and name CA'):
     """
@@ -161,7 +161,7 @@ def align_trajectory(top_path, traj_path, aligned_traj_path, selection='protein 
     u = mda.Universe(top_path, traj_path)
 
     # Step 1: Calculate the average structure of the protein, as an alignment reference.
-    logger.info("Calculating the average structure of the protein...")
+    logger.debug("Calculating the average structure of the protein...")
     from MDAnalysis.analysis import align
     average = align.AverageStructure(u, u, select=selection,
                                     ref_frame=0,
@@ -179,4 +179,4 @@ def align_trajectory(top_path, traj_path, aligned_traj_path, selection='protein 
     aligner.run()
 
     u = mda.Universe(top_path, aligned_traj_path)
-    logger.info(f"Number of frames in the trajectory: {len(u.trajectory)}")
+    logger.debug(f"Number of frames in the trajectory: {len(u.trajectory)}")

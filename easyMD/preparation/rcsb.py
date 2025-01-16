@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 def download_pdb(pdb_id, download_dir):
     import requests
     from pathlib import Path
@@ -9,7 +13,7 @@ def download_pdb(pdb_id, download_dir):
         download_dir.mkdir(parents=True, exist_ok=True)
         with open(download_dir / f'{pdb_id}.cif', 'w') as file:
             file.write(response.text)
-        print(f'Successfully downloaded {pdb_id}.cif')
+        logger.info(f'Successfully downloaded {pdb_id}.cif')
     else:
         raise ValueError(f'Failed to download {pdb_id}.cif. Please check the PDB ID.')
     
@@ -26,7 +30,7 @@ def download_ligand(ligand_id, download_dir):
         download_dir.mkdir(parents=True, exist_ok=True)
         with open(download_dir / f'{ligand_id}_ideal.sdf', 'w') as file:
             file.write(response.text)
-        print(f'Successfully downloaded {ligand_id}_ideal.sdf')
+        logger.info(f'Successfully downloaded {ligand_id}_ideal.sdf')
     else:
         raise ValueError(f'Failed to download {ligand_id}_ideal.sdf. Please check the ligand ID.')
     

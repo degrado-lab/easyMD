@@ -49,13 +49,15 @@ def create_forcefield(forcefield_files):
     forcefield = ForceField(*forcefield_files)
     return forcefield
 
-def add_molecule_to_forcefield(forcefield, molecule):
+def add_molecule_to_forcefield(forcefield, molecule, name=None):
     '''
     Adds an OpenFF Molecule to a ForceField file:
     '''
     from openmmforcefields.generators import GAFFTemplateGenerator
-
-    logger.info(f"Adding GAFF template for the ligand {molecule.to_smiles()}")
+    
+    if name is None:
+        name = molecule.to_smiles()
+    logger.info(f"Adding GAFF template for the ligand {name}")
     gaff = GAFFTemplateGenerator(molecules=[molecule])
     forcefield.registerTemplateGenerator(gaff.generator)
     return forcefield

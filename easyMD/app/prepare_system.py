@@ -99,12 +99,12 @@ def prepare_system(
 
         for ligand_sdf_path in ligand_sdf_paths:
             if ligand.matches_residue_to_sdf(temp_ligand_file.name, ligand_sdf_path):
-                logger.info("Matched ligand %s to residue %s." % (ligand_sdf_path, res_name))
+                logger.debug("Matched ligand %s to residue %s." % (ligand_sdf_path, res_name))
                 break
         else:
-            logger.warning("Could not find a match for residue %s in provided SDFs." % res_name)
             # Attempt to download from PDB:
             try:
+                logger.debug("Could not find a match for residue %s in provided SDFs. Attempting to download from PDB." % res_name)
                 new_ligand_sdf = rcsb.download_ligand(res_name, download_dir)
             except ValueError as e:
                 logger.error(e)
@@ -113,7 +113,7 @@ def prepare_system(
 
     for ligand_sdf_path in ligand_sdf_paths:
         ligand_molecule = ligand.load_openff_ligand_from_sdf(ligand_sdf_path, sanitize=False, removeHs=False)
-        forcefield = forcefield_utils.add_molecule_to_forcefield(forcefield, ligand_molecule)
+        forcefield = forcefield_utils.add_molecule_to_forcefield(forcefield, ligand_molecule, name=ligand_sdf_path)
 
     # Step 8: Create modeller, add hydrogens, (optionally) load ligand H definitions, add solvent
     # To create the hydrogen definitions, we need to pass in a residue coupled to an SDF.
@@ -148,7 +148,5 @@ def prepare_system(
         timestep=timestep
     )
 
-    # logger.info("Minimizing energy...")
-    # simulation.minimizeEnergy()
     logger.info("System setup complete.")
     return simulation

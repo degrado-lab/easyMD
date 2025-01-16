@@ -15,7 +15,7 @@ def load_openff_ligand_from_sdf(sdf_path: str, sanitize: bool = True, removeHs: 
     Load a ligand from an SDF file using the OpenFF Toolkit.
     This allows us to toggle sanitization and hydrogen removal, which can confound kekulization (i.e. representation of aromatic rings as single/double bonds).
     '''
-    logger.info(f"Loading ligand from SDF: {sdf_path}")
+    logger.debug(f"Loading ligand from SDF: {sdf_path}")
     # Here, creating the openFF molecule may fail during kekulization.
     # We toggle sanitization and hydrogen removal, however, in Molecule.from_rdkit() it does this anyway.
     rdkit_mol = Chem.SDMolSupplier(sdf_path, sanitize=sanitize, removeHs=removeHs)[0]
@@ -89,13 +89,12 @@ def matches_residue_to_sdf(pdb_file, ligand_sdf_path):
 
     # To do this, we'll attempt to create a mapping
     try:
-        atom_mapping = get_atom_mapping(pdb_file, ligand_sdf_path, resname="LIG")
+        atom_mapping = get_atom_mapping(pdb_file, ligand_sdf_path, resname="LIG", silent=True)
         return True
     except ValueError as e:
-        print(e)
         return False
 
-def get_atom_mapping(pdb_file, sdf_file, resname):
+def get_atom_mapping(pdb_file, sdf_file, resname, silent=False):
     '''
     Given a PDB file and an SDF file, find the Maximum Common Substructure (MCS) between the two molecules and align the SDF molecule to the PDB molecule.
     Then, return a mapping of atom indices between the PDB molecule and the SDF molecule. Indexing is 0-based.
@@ -158,9 +157,10 @@ def get_atom_mapping(pdb_file, sdf_file, resname):
 
         message = f'The SDF provided does not contain all heavy atoms from the residue {resname} in the PDB file. \n\
         Unmapped atoms in PDB: {pdb_unmapped_atoms}, Unmapped atoms in SDF: {sdf_unmapped_atoms}'
-
-        termol.draw(Chem.MolToSmiles(pdb_mol), name=pdb_file, three_d=False)
-        termol.draw(Chem.MolToSmiles(sdf_mol), name=sdf_file, three_d=False)
+        
+        if not silent:
+            termol.draw(Chem.MolToSmiles(pdb_mol), name=pdb_file, three_d=False)
+            termol.draw(Chem.MolToSmiles(sdf_mol), name=sdf_file, three_d=False)
         raise ValueError(message)
 
     # Align the SDF molecule to the PDB molecule using this atom mapping
@@ -188,9 +188,10 @@ def show_non_standard_residues(topology, non_standard_residues):
             residues_list.append(matched_residue)
     
     # draw with TerMOL:
+    logger.info("The following non-standard residues were found:")
     for residue in residues_list:
         try:
-            termol.draw(residue_to_smiles(residue, topology), name=str(residue), three_d=False, width=80, height=40)
+            termol.draw(residue_to_smiles(residue, topology), name=str(residue), three_d=False, width=60, height=30)
         except Exception as e:
             print(f"Could not draw residue {residue} due to error: {e}")
 
