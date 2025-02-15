@@ -87,7 +87,7 @@ def prepare_system(
     #     forcefield = add_molecule_to_forcefield(forcefield, ligand_molecule)
     #     # - On fail, clearly alert user and attempt to download _ add from PDB.
     #     # - Otherwise, attempt to download + add from PDB.
-
+    
     # For each non-standard residue, make sure they have a matched SDF.
     # If not provided, we'll need to download from PDB.
     download_dir = Path("./downloads")
@@ -99,7 +99,7 @@ def prepare_system(
 
         for ligand_sdf_path in ligand_sdf_paths:
             if ligand.matches_residue_to_sdf(temp_ligand_file.name, ligand_sdf_path):
-                logger.debug("Matched ligand %s to residue %s." % (ligand_sdf_path, res_name))
+                logger.info("Matched ligand %s to residue %s." % (ligand_sdf_path, res_name))
                 break
         else:
             # Attempt to download from PDB:

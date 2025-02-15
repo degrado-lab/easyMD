@@ -21,6 +21,13 @@ def run(
         help="Input structure file (e.g., PDB, CIF)",
         show_default=False
     ),
+    # Optional list of ligand SDF files:
+    ligands: List[str] = typer.Option(
+        [],
+        "--ligand",
+        "-l",
+        help="The structure file (e.g., SDF) of a ligand in your system. This file specifies the correct bonds and protonation states. For multiple, use the flag multiple times.",
+    ),
     output: str = typer.Option(
         "./output",
         help="Prefix for output files. EasyMD will produce [output].pdb, [output].dcd, and [output]_aligned.dcd."
@@ -79,6 +86,7 @@ def run(
     # Prepare system
     simulation = prepare_system(
         str(input_path),
+        ligand_sdf_paths=ligands,
         output_pdb=str(output_pdb_path),
         fix=fix,
         water_model=water_model
@@ -104,8 +112,52 @@ def run(
         str(output_traj_path),
         str(output_aligned_path)
     )
-
+    
     logging.info("Done!")
+
+@app.command()
+def process(
+    top_path: str = typer.Argument(
+        ..., help="Path to the topology file (e.g., PDB)", show_default=False
+    ),
+    traj_path: str = typer.Argument(
+        ..., help="Path to the trajectory file (e.g., DCD)", show_default=False
+    ),
+    output_prefix: str = typer.Option(
+        "./output_processed",
+        help="Prefix for output files. EasyMD will produce [output_prefix]_rewrapped.dcd and [output_prefix]_aligned.dcd."
+    ),
+    log_level: str = typer.Option(
+        "INFO",
+        help="Set logging level (DEBUG|INFO|WARNING|ERROR)",
+        case_sensitive=False
+    )
+):
+    """
+    Command to process a pre-run simulation by rewrapping and aligning the trajectory.
+    """
+    # Set up logging
+    logging.basicConfig(level=getattr(logging, log_level.upper()))
+    logging.getLogger('easyMD').setLevel(getattr(logging, log_level.upper()))
+
+    # Convert input/output paths to Path objects
+    top_path = Path(top_path)
+    traj_path = Path(traj_path)
+    output_prefix = Path(output_prefix).with_suffix('')
+    rewrapped_traj_path = output_prefix.with_name(f"{output_prefix.stem}_rewrapped.dcd")
+    aligned_traj_path = output_prefix.with_name(f"{output_prefix.stem}_aligned.dcd")
+
+    # Verify input files exist
+    if not top_path.exists() or not traj_path.exists():
+        logging.error(f"Input files not found: {top_path}, {traj_path}")
+        sys.exit(1)
+
+    # Process trajectory
+    from easyMD.analysis.trajectory import rewrap_trajectory, align_trajectory
+    rewrap_trajectory(str(top_path), str(traj_path), str(rewrapped_traj_path))
+    align_trajectory(str(top_path), str(rewrapped_traj_path), str(aligned_traj_path))
+
+    logging.info("Processing complete!")
 
 @app.command()
 def get_forcefields():
