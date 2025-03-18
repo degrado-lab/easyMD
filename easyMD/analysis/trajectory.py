@@ -124,32 +124,6 @@ def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path, perform_initial_
         for ts in rewrapped_u.trajectory:
             W.write(rewrapped_u.atoms)
     
-    # Calculate center of box for each frame
-    # box_centers = []
-    # distances = []
-    # ca_atoms = rewrapped_u.select_atoms('protein and name CA')
-    
-    # logger.debug(f"Calculating average distances for {len(ca_atoms)} CA atoms")
-    # for ts in tqdm(rewrapped_u.trajectory):
-    #     box_center = ts.dimensions[:3] / 2  # Get box center coordinates
-    #     box_centers.append(box_center)
-        
-    #     # Calculate distances from each CA to box center
-    #     frame_distances = []
-    #     for ca in ca_atoms.positions:
-    #         dist = np.linalg.norm(ca - box_center)
-    #         frame_distances.append(dist)
-    #     distances.append(frame_distances)
-    
-    # # Convert to numpy array for calculations
-    # distances = np.array(distances)
-    
-    # # Calculate average distance per frame
-    # avg_distances = np.mean(distances, axis=1)
-    # overall_avg = np.mean(avg_distances)
-    
-    # logger.debug(f"Average distance from box center: {overall_avg:.2f} Angstroms")
-    
 def align_trajectory(top_path, traj_path, aligned_traj_path, selection='protein and name CA'):
     """
     Align the trajectory to a reference structure.

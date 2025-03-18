@@ -5,6 +5,7 @@ from pathlib import Path
 import typer
 from typing import List
 from openmm import unit
+from openmm.unit.quantity import Quantity
 
 from easyMD.app import prepare_system, run_simulation, process_trajectory
 
@@ -12,6 +13,8 @@ app = typer.Typer(help="Run molecular dynamics simulations with easyMD", add_com
 # Listing here so we can check against user inputs later:
 DEFAULT_FORCEFIELD = ["amber14-all.xml", "amber14/tip3p.xml"]
 DEFAULT_WATER_MODEL = 'tip3p'
+DEFAULT_IONIC_STRENGTH = 0.15 #* unit.molar
+DEFAULT_BOX_PADDING = 1.0 #* unit.nanometer
 
 
 @app.command()
@@ -53,6 +56,14 @@ def run(
         DEFAULT_WATER_MODEL,
         help = 'Water model used for solvation. Must match forcefield parameters. (tip3p|spce|tip4pew|tip5p|swm4ndp)'
     ),
+    ionic_strength: float = typer.Option(
+        DEFAULT_IONIC_STRENGTH,
+        help = 'Ionic strength used in solvation of the system (Molar).'
+    ),
+    box_padding: float = typer.Option(
+        DEFAULT_BOX_PADDING,
+        help = 'Padding of solvent around the system (nanometers).'
+    ),
     log_level: str = typer.Option(
         "INFO",
         help="Set logging level (DEBUG|INFO|WARNING|ERROR)",
@@ -84,21 +95,35 @@ def run(
         sys.exit(1)
 
     # Prepare system
-    simulation = prepare_system(
-        str(input_path),
-        ligand_sdf_paths=ligands,
+    # simulation = prepare_simulation(
+    #     str(input_path),
+    #     ligand_sdf_paths=ligands,
+    #     output_pdb=str(output_pdb_path),
+    #     fix=fix,
+    #     water_model=water_model
+    # )
+    system, modeller = prepare_system(
+        protein_input_path = str(input_path),
+        ligand_sdf_paths = ligands,
+        ionic_strength = ionic_strength * unit.molar,
+        box_padding = box_padding * unit.nanometer,
+        water_model = water_model,
         output_pdb=str(output_pdb_path),
-        fix=fix,
-        water_model=water_model
+        forcefield_files = forcefield,
+        fix = fix
     )
-
+    
     try:
         # Run simulation
         run_simulation(
-            simulation,
-            str(output_traj_path),
+            system=system,
+            modeller=modeller,
+            output_file=str(output_traj_path),
             duration=duration * unit.nanoseconds,
-            output_frequency=output_frequency * unit.nanoseconds
+            output_frequency=output_frequency * unit.nanoseconds,
+            energy_minimize=True,
+            relax=True,
+            relax_duration=1 * unit.nanoseconds
         )
     except KeyboardInterrupt:
         logging.info("Simulation interrupted by user")
@@ -113,6 +138,67 @@ def run(
         str(output_aligned_path)
     )
     
+    logging.info("Done!")
+
+@app.command()
+def reduce(
+    input_structure: str = typer.Argument(
+        ...,
+        help="Input structure file (e.g., PDB, CIF)",
+        show_default=False
+    ),
+    # Optional list of ligand SDF files:
+    ligands: List[str] = typer.Option(
+        [],
+        "--ligand",
+        "-l",
+        help="The structure file (e.g., SDF) of a ligand in your system. This file specifies the correct bonds and protonation states. For multiple, use the flag multiple times.",
+    ),
+    output_file: str = typer.Option(
+        None,
+        help="Output file for the reduced structure. If not provided, the output will be named [input]_h.pdb."
+    ),
+    fix: bool = typer.Option(
+        True,
+        help="Fix the structure during preparation with PDBFixer"
+    ),
+    forcefield: List[str] = typer.Option(
+        DEFAULT_FORCEFIELD,
+        help="List of forcefield files (e.g., amber14-all.xml amber14/tip3p.xml).\n \
+                To list available files, run `easymd forcefields`."
+    ),
+    log_level: str = typer.Option(
+        "INFO",
+        help="Set logging level (DEBUG|INFO|WARNING|ERROR)",
+        case_sensitive=False
+    )
+):
+    """
+    Add hydrogens to a structure and save as a PDB file.
+    """
+    # Set up logging
+    logging.basicConfig(level=getattr(logging, log_level.upper()))
+    logging.getLogger('easyMD').setLevel(getattr(logging, log_level.upper()))
+
+    # Convert input/output paths to Path objects
+    input_path = Path(input_structure)
+    output_file = output_file or input_path.with_name(f"{input_path.stem}_h.pdb")
+    output_file = Path(output_file)
+
+    # Verify input file exists
+    if not input_path.exists():
+        logging.error(f"Input structure file not found: {input_path}")
+        sys.exit(1)
+
+    # Add hydrogens:
+    from easyMD.app.prepare_system import reduce
+    reduce(
+        protein_input_path=str(input_path),
+        ligand_sdf_paths=ligands,
+        output_pdb=str(output_file),
+        forcefield_files=forcefield,
+        fix=fix
+    )
     logging.info("Done!")
 
 @app.command()

@@ -1,5 +1,5 @@
 from openmm import app, unit
-from easyMD.app import prepare_system, run_simulation, process_trajectory
+from easyMD.app import prepare_simulation, run_simulation, process_trajectory
 from easyMD.io import write_pdb_from_simulation
 import logging
 
@@ -12,7 +12,7 @@ if __name__ == "__main__":
     top_file = 'output1.pdb'
     traj_file = 'output1.dcd'
 
-    simulation = prepare_system("downloads/7H6N_A.cif", 
+    simulation = prepare_simulation("downloads/7H6N_A.cif", 
                                 output_pdb='output1.pdb', 
                                 fix=True)
     

@@ -1,4 +1,4 @@
-from easyMD.preparation.rcsb import download_pdb
+from easyMD.prep.rcsb import download_pdb
 
 import random
 
