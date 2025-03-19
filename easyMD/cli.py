@@ -32,11 +32,15 @@ def run(
         help="Prefix for output files. EasyMD will produce [output].pdb, [output].dcd, and [output]_aligned.dcd."
     ),
     duration: float = typer.Option(
-        1.0,
+        10,
         help="Simulation duration in nanoseconds"
     ),
+    relax_duration: float = typer.Option(
+        1.0,
+        help="Duration of initial equilibration/relaxation simulation, in nanoseconds"
+    ),
     output_frequency: float = typer.Option(
-        0.1,
+        1,
         help="Output frequency in nanoseconds"
     ),
     fix: bool = typer.Option(
@@ -126,7 +130,7 @@ def run(
             output_frequency=output_frequency * unit.nanoseconds,
             energy_minimize=True,
             relax=True,
-            relax_duration=1 * unit.nanoseconds
+            relax_duration = relax_duration * unit.nanoseconds
         )
     except KeyboardInterrupt:
         logging.info("Simulation interrupted by user")
@@ -167,8 +171,10 @@ def reduce(
     ),
     forcefield: List[str] = typer.Option(
         DEFAULT_FORCEFIELD,
+        "--forcefield",
+        "-f",
         help="List of forcefield files (e.g., amber14-all.xml amber14/tip3p.xml).\n \
-                To list available files, run `easymd forcefields`."
+                To list available files, run `easymd get-forcefields`."
     ),
     log_level: str = typer.Option(
         "INFO",
