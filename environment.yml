@@ -1,0 +1,15 @@
+name: easymd
+channels:
+  - conda-forge
+dependencies:
+  - typer=0.9.0=pyhd8ed1ab_0
+  - pdbfixer=1.9=pyh1a96a4e_0
+  - openff-toolkit=0.14.5=pyhd8ed1ab_1
+  - openmmforcefields=0.12.0=pyhd8ed1ab_0
+  - pip:
+      - openmm==8.2.0
+      - mdanalysis==2.8.0
+      - numpy==1.26.4
+      - rdkit==2024.9.5
+      - biopython==1.85
+      - termol==0.1.6
