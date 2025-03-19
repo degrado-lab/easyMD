@@ -5,7 +5,7 @@ A CLI tool for preparing and running molecular dynamics simulations, using OpenM
 ## Description
 
 Never run an MD simulation before? With EasyMD, it's as simple as:
-```> easymd run my_protein.pdb ```
+```easymd run my_protein.pdb ```
 
 > [!WARNING]  
 > EasyMD is a Work In Progress, and is currently in pre-release form. Feel free to use and offer suggestions!
@@ -28,7 +28,8 @@ conda env create -f environment.yml -y
 
 Then, enter the environment:
 ```bash
-conda activate easymd```
+conda activate easymd
+```
 
 Clone this repo:
 ```bash
