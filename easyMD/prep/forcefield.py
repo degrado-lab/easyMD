@@ -46,17 +46,33 @@ def get_non_standard_residues(forcefield_files: list, pdb_path: str):
     
     return unmatched_residues_without_common
 
-def add_molecule_to_forcefield(forcefield, molecule, name=None):
+def add_molecule_to_forcefield(forcefield, molecule, name=None, generator='GAFF', generator_forcefield=None):
     '''
     Adds an OpenFF Molecule to a ForceField file:
     '''
-    from openmmforcefields.generators import GAFFTemplateGenerator
+    from openmmforcefields.generators import GAFFTemplateGenerator, SMIRNOFFTemplateGenerator, EspalomaTemplateGenerator
+
+    logger.info(f"Adding {generator} template for the ligand {name}")
+
+    # Choose the appropriate template generator:
+    available_template_generators = {
+        'GAFF': GAFFTemplateGenerator,
+        'SMIRNOFF': SMIRNOFFTemplateGenerator,
+        'ESPALOMA': EspalomaTemplateGenerator
+    }
+    TemplateGenerator = available_template_generators[generator]
+
+    # Create it, with the chosen forcefield if necessary (Each template generator has a default forcefield):
+    if generator_forcefield is not None:
+        template_generator = TemplateGenerator(molecules=[molecule], forcefield=generator_forcefield)
+    else:
+        template_generator = TemplateGenerator(molecules=[molecule])
     
     if name is None:
         name = molecule.to_smiles()
-    logger.info(f"Adding GAFF template for the ligand {name}")
-    gaff = GAFFTemplateGenerator(molecules=[molecule])
-    forcefield.registerTemplateGenerator(gaff.generator)
+    
+    # Add the template generator to the forcefield:
+    forcefield.registerTemplateGenerator(template_generator.generator)
     return forcefield
 
 def make_forcefield(forcefield_files, NS_residue_dict):

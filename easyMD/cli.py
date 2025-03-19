@@ -4,10 +4,6 @@ from pathlib import Path
 
 import typer
 from typing import List
-from openmm import unit
-from openmm.unit.quantity import Quantity
-
-from easyMD.app import prepare_system, run_simulation, process_trajectory
 
 app = typer.Typer(help="Run molecular dynamics simulations with easyMD", add_completion=False)
 # Listing here so we can check against user inputs later:
@@ -56,6 +52,10 @@ def run(
         DEFAULT_WATER_MODEL,
         help = 'Water model used for solvation. Must match forcefield parameters. (tip3p|spce|tip4pew|tip5p|swm4ndp)'
     ),
+    pH: float = typer.Option(
+        7.0,
+        help = 'pH of the system. Used for protonation state calculations.'
+    ),
     ionic_strength: float = typer.Option(
         DEFAULT_IONIC_STRENGTH,
         help = 'Ionic strength used in solvation of the system (Molar).'
@@ -94,6 +94,9 @@ def run(
         logging.error(f"Input structure file not found: {input_path}")
         sys.exit(1)
 
+    from openmm import unit
+
+    from easyMD.app import prepare_system, run_simulation, process_trajectory
     # Prepare system
     # simulation = prepare_simulation(
     #     str(input_path),

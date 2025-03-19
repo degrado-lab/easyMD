@@ -33,6 +33,7 @@ def prepare_model(
     forcefield_files: list = ['amber14-all.xml', 'amber14/tip3p.xml'],
     fix: bool = False,
     temp_dir: str = None,
+    show_non_standard_residues: bool = True
 ):
     """
     High-level wrapper to set up an OpenMM `Modeller` from a protein (PDB or CIF)
@@ -82,7 +83,7 @@ def prepare_model(
 
     # Step 5: Create our OpenMM ForceField object, which includes all non-standard residues using GAFF.
     # Soon, we'll add options for other forcefields.
-    forcefield = prep_forcefield.make_forcefield( forcefield_files, NS_residue_dict )
+    forcefield = prep_forcefield.make_forcefield( forcefield_files, NS_residue_dict)
 
     # Step 6: Create hydrogen templates
     # This tells the Modeller object how to add hydrogens to all non-standard residues.
@@ -96,17 +97,18 @@ def prepare_model(
 
     return modeller, forcefield, hydrogen_templates_dict
 
-def add_hydrogens_to_model( modeller, forcefield, hydrogen_templates_dict, output_pdb=None ):
+def add_hydrogens_to_model( modeller, forcefield, hydrogen_templates_dict, output_pdb=None, pH=7.0 ):
     for residue_name, xml_temp_file_path in hydrogen_templates_dict.items():
         logger.debug("Loading hydrogen definitions for ligand %s." % residue_name)
         modeller.loadHydrogenDefinitions( xml_temp_file_path )
 
     # Add missing hydrogens for entire complex
     logger.debug("Adding hydrogens to the entire system.")
-    modeller.addHydrogens(forcefield)
+    modeller.addHydrogens(forcefield, pH=pH)
 
     # Write out the hydrogenated structure
     if output_pdb is not None:
+        logger.debug("Writing out hydrogenated structure.")
         with open(output_pdb, 'w') as f:
             openmm.app.PDBFile.writeFile(modeller.topology, modeller.positions, f)
 
@@ -147,6 +149,7 @@ def prepare_system(
     ligand_sdf_paths: list = [],
     ionic_strength: float = 0.15 * unit.molar,
     box_padding: float = 1.0 * unit.nanometer,
+    pH: float = 7.0,
     # platform_name: str = "CUDA",
     # temperature: float = 300.0,
     # friction: float = 1.0,
@@ -184,7 +187,8 @@ def prepare_system(
         modeller=modeller,
         forcefield=forcefield,
         hydrogen_templates_dict=hydrogen_templates_dict,
-        output_pdb=None
+        output_pdb=None,
+        pH=pH
     )
 
     # Step 3: Add solvent to the model
@@ -213,25 +217,13 @@ def prepare_system(
 
     logger.info("System setup complete.")
     return system, modeller
-    
-    # Step 10: Create integrator + Simulation
-    # simulation = prep_system.create_simulation(
-    #     system=system,
-    #     modeller=modeller,
-    #     platform_name=platform_name,
-    #     temperature=temperature,
-    #     friction=friction,
-    #     timestep=timestep
-    # )
-
-    # logger.info("System setup complete.")
-    # return simulation
 
 def reduce(
     protein_input_path: str,
     ligand_sdf_paths: list = [],
     output_pdb: str = None,
     forcefield_files: list = ['amber14-all.xml', 'amber14/tip3p.xml'],
+    pH: float = 7.0,
     fix: bool = False,
 ):
     """
@@ -254,5 +246,6 @@ def reduce(
         modeller=modeller,
         forcefield=forcefield,
         hydrogen_templates_dict=hydrogen_templates_dict,
-        output_pdb=output_pdb
+        output_pdb=output_pdb,
+        pH=pH
     )
