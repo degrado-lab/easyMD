@@ -21,7 +21,12 @@ Never run an MD simulation before? With EasyMD, it's as simple as:
 ## Installation
 EasyMD requires packages installed via the Conda package manager. 
 
-First, create a new conda environment using the provided file:
+First, clone this repo:
+```bash
+git clone https://github.com/degrado-lab/easyMD.git
+```
+
+Inside the repo, create a new conda environment using the provided file:
 ```bash
 conda env create -f environment.yml -y
 ```
@@ -31,12 +36,7 @@ Then, enter the environment:
 conda activate easymd
 ```
 
-Clone this repo:
-```bash
-git clone https://github.com/degrado-lab/easyMD.git
-```
-
-Enter the repo, and install EasyMD into the conda environment:
+Install EasyMD into the conda environment:
 ```
 pip install .
 ```
