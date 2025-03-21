@@ -69,10 +69,44 @@ def create_rewrapped_universe(u, selection='protein'):
     new_u.load_new(new_positions_array, format=MemoryReader)
 
     # # Set the dimensions for each frame, from previous universe
-    # for ts in new_u.trajectory:
-    #     ts.dimensions = new_dimensions[ts.frame]
+    for ts in new_u.trajectory:
+        ts.dimensions = new_dimensions[ts.frame]
 
     return new_u
+
+# def fix_waters_on_boundary(u, cutoff=10.0):
+#     # Select the water residues
+#     waters = u.select_atoms("resname WAT or resname TIP3 or resname HOH")
+#     water_residues = waters.residues  # Each residue is presumably 3 atoms of water
+
+#     for ts in tqdm(u.trajectory):
+#         box = ts.dimensions[:3]  # (Lx, Ly, Lz)
+#         all_coords = u.atoms.positions  # <--- entire Universe, shape = (N_universe, 3)
+
+#         # For each water residue, gather the global indices
+#         #for res in water_residues:
+#         ridx = water_residues.atoms.indices  # global indices in u.atoms
+#         coords_res = all_coords[ridx]  # shape = (n_atoms_in_res, 3)
+
+#         # Check dimension by dimension
+#         boundary_mask = coords_res > (box - cutoff)
+
+#         #print(box[0], box[1], box[2])
+#         print(boundary_mask.shape)
+#         print(coords_res[:, 0][boundary_mask[:, 0]])
+#         print(box[0])
+#         coords_res[:, 0][boundary_mask[:, 0]] -= box[0]
+#         coords_res[:, 1][boundary_mask[:, 1]] -= box[1]
+#         coords_res[:, 2][boundary_mask[:, 2]] -= box[2]
+        
+#         print(coords_res[:, 0][boundary_mask[:, 0]])
+#         print()
+#         all_coords[ridx] = coords_res
+
+#         # Put updated coords back
+#         u.atoms.positions = all_coords
+
+#     return u
 
 def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path, perform_initial_rewrap=True, selection='protein'):
     """
@@ -85,6 +119,9 @@ def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path, perform_initial_
     # Add debug information
     logger.debug(f"Loading trajectory from {traj_path}")
     logger.debug(f"Using topology from {top_path}")
+
+    # Reduce frames:
+    #reduce_frames(top_path, traj_path, 'output_red.dcd', 5)
     
     # Try loading with topology_format explicitly set for OpenMM PDB
     u = mda.Universe(
@@ -118,6 +155,9 @@ def rewrap_trajectory(top_path, traj_path, rewrapped_traj_path, perform_initial_
     
     # Then, we rewrap on the chosen selection.
     rewrapped_u = create_rewrapped_universe(initial_rewrapped_u, selection=selection)
+
+    # Fix the waters:
+    # rewrapped_u = fix_waters_on_boundary(rewrapped_u)
 
     # Save the rewrapped trajectory
     with mda.Writer(rewrapped_traj_path, rewrapped_u.atoms.n_atoms) as W:

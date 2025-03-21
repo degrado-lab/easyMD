@@ -4,8 +4,14 @@ from pathlib import Path
 
 import typer
 from typing import List
+from click import Context
+from typer.core import TyperGroup
 
-app = typer.Typer(help="Run molecular dynamics simulations with easyMD", add_completion=False)
+class OrderCommands(TyperGroup):
+  def list_commands(self, ctx: Context):
+    return list(self.commands)
+
+app = typer.Typer(help="Run molecular dynamics simulations with easyMD", add_completion=False, no_args_is_help=True, cls=OrderCommands)
 # Listing here so we can check against user inputs later:
 DEFAULT_FORCEFIELD = ["amber14-all.xml", "amber14/tip3p.xml"]
 DEFAULT_WATER_MODEL = 'tip3p'
@@ -13,7 +19,7 @@ DEFAULT_IONIC_STRENGTH = 0.15 #* unit.molar
 DEFAULT_BOX_PADDING = 1.0 #* unit.nanometer
 
 
-@app.command()
+@app.command(rich_help_panel='Simulation')
 def run(
     input_structure: str = typer.Argument(
         ...,
@@ -49,8 +55,11 @@ def run(
     ),
     forcefield: List[str] = typer.Option(
         DEFAULT_FORCEFIELD,
+        "--forcefield",
+        "-f",
         help="List of forcefield files (e.g., amber14-all.xml amber14/tip3p.xml).\n \
-                To list available files, run `easymd forcefields`."
+                To list available files, run `easymd forcefields`. \n \
+                Use multiple times for multiple forcefield files."
     ),
     water_model: str = typer.Option(
         DEFAULT_WATER_MODEL,
@@ -59,6 +68,13 @@ def run(
     pH: float = typer.Option(
         7.0,
         help = 'pH of the system. Used for protonation state calculations.'
+    ),
+    hydrogen_variants: List[str] = typer.Option(
+        [],
+        "--hydrogen-variant",
+        "-hv",
+        help="List of hydrogen variants to use. Specify the chain and residue number, then the variant. E.g. A13=HIE, or B98=ASH. \n \
+            Use multiple times for multiple variants."
     ),
     ionic_strength: float = typer.Option(
         DEFAULT_IONIC_STRENGTH,
@@ -75,8 +91,7 @@ def run(
     )
 ):
     """
-    Command to run a molecular dynamics simulation, specifying input files,
-    output files, simulation parameters, and logging.
+    Prepare and run a molecular dynamics simulation.
     """
     # Set up logging
     logging.basicConfig(level=getattr(logging, log_level.upper()))
@@ -89,6 +104,7 @@ def run(
     # Convert input/output paths to Path objects
     input_path = Path(input_structure)
     output_name = Path(output).with_suffix('') # remove extension in case they provided one.
+    output_name.parent.mkdir(parents=True, exist_ok=True)
     output_pdb_path =       output_name.with_suffix('.pdb')
     output_traj_path =      output_name.with_suffix('.dcd')
     output_aligned_path =   output_name.with_name(f"{output_name.stem}_aligned.dcd")
@@ -115,9 +131,11 @@ def run(
         ionic_strength = ionic_strength * unit.molar,
         box_padding = box_padding * unit.nanometer,
         water_model = water_model,
+        pH = pH,
         output_pdb=str(output_pdb_path),
         forcefield_files = forcefield,
-        fix = fix
+        fix = fix,
+        hydrogen_variants = hydrogen_variants
     )
     
     try:
@@ -147,7 +165,7 @@ def run(
     
     logging.info("Done!")
 
-@app.command()
+@app.command(rich_help_panel='Utility')
 def reduce(
     input_structure: str = typer.Argument(
         ...,
@@ -210,7 +228,7 @@ def reduce(
     )
     logging.info("Done!")
 
-@app.command()
+@app.command(rich_help_panel='Utility')
 def process(
     top_path: str = typer.Argument(
         ..., help="Path to the topology file (e.g., PDB)", show_default=False
@@ -229,7 +247,7 @@ def process(
     )
 ):
     """
-    Command to process a pre-run simulation by rewrapping and aligning the trajectory.
+    Align and re-wrap a trajectory around a protein.
     """
     # Set up logging
     logging.basicConfig(level=getattr(logging, log_level.upper()))
@@ -254,10 +272,10 @@ def process(
 
     logging.info("Processing complete!")
 
-@app.command()
+@app.command(rich_help_panel='Info')
 def get_forcefields():
     """
-    Display the path to the OpenMM forcefields.
+    Display available OpenMM Forcefields.
     """
     import openmm
     openmm_path = Path(openmm.__file__).parent
@@ -291,6 +309,36 @@ def print_directory_tree(directory: Path, prefix: str = "") -> None:
             if entry.suffix == '.xml':
                 typer.echo(f"{prefix}{connector} {entry.name}")
 
+@app.command(rich_help_panel='Info')
+def get_hydrogen_variants():
+    """
+    Display the valid protonation states for amino acids in OpenMM.
+    """
+    print("From OpenMM documentation:")
+    print("""
+Aspartic acid:
+    ASH: Neutral form with a hydrogen on one of the delta oxygens
+    ASP: Negatively charged form without a hydrogen on either delta oxygen
+
+Cysteine:
+    CYS: Neutral form with a hydrogen on the sulfur
+    CYX: No hydrogen on the sulfur (either negatively charged, or part of a disulfide bond)
+
+Glutamic acid:
+    GLH: Neutral form with a hydrogen on one of the epsilon oxygens
+    GLU: Negatively charged form without a hydrogen on either epsilon oxygen
+
+Histidine:
+    HID: Neutral form with a hydrogen on the ND1 atom
+    HIE: Neutral form with a hydrogen on the NE2 atom
+    HIP: Positively charged form with hydrogens on both ND1 and NE2
+    HIN: Negatively charged form without a hydrogen on either ND1 or NE2
+
+Lysine:
+    LYN: Neutral form with two hydrogens on the zeta nitrogen
+    LYS: Positively charged form with three hydrogens on the zeta nitrogen
+""")
+    
 def main():
     app()
 

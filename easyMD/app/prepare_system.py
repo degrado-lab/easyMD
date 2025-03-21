@@ -97,14 +97,22 @@ def prepare_model(
 
     return modeller, forcefield, hydrogen_templates_dict
 
-def add_hydrogens_to_model( modeller, forcefield, hydrogen_templates_dict, output_pdb=None, pH=7.0 ):
+def add_hydrogens_to_model( modeller, forcefield, hydrogen_templates_dict, output_pdb=None, pH=7.0, hydrogen_variants=[] ):
     for residue_name, xml_temp_file_path in hydrogen_templates_dict.items():
         logger.debug("Loading hydrogen definitions for ligand %s." % residue_name)
         modeller.loadHydrogenDefinitions( xml_temp_file_path )
 
+    # Parse variants (from string to list of [None, None, VARIANT, ...])
+    if hydrogen_variants:
+        logger.debug("Parsing hydrogen variants: %s" % hydrogen_variants)
+        variant_list = parse_hydrogen_variants(hydrogen_variants, modeller)
+    else:
+        logger.debug("Using default protonation states.")
+        variant_list = None
+
     # Add missing hydrogens for entire complex
     logger.debug("Adding hydrogens to the entire system.")
-    modeller.addHydrogens(forcefield, pH=pH)
+    modeller.addHydrogens(forcefield, pH=pH, variants=variant_list)
 
     # Write out the hydrogenated structure
     if output_pdb is not None:
@@ -126,6 +134,33 @@ def add_solvent_to_model( modeller, forcefield, water_model, ionic_strength, box
             openmm.app.PDBFile.writeFile(modeller.topology, modeller.positions, f)
 
     return modeller
+
+def parse_hydrogen_variants(hydrogen_variants, modeller):
+    """
+    Inputs:
+    - hydrogen_variants: list of strings of form [CHAINRESID=VARIANT, ...]. Example: ['A1=HIS', 'C102=HIE']
+
+    Outputs:
+    - list of length n, where n is the number of residues in the modeller.
+    - Each entry is a string of the form VARIANT, where VARIANT is the name of the variant, or None if no variant is specified.
+    """
+
+    # Create a list of None values for each residue in the modeller
+    residue_variants = [None] * len(list(modeller.topology.residues()))
+
+    # Iterate over the hydrogen variants
+    for variant in hydrogen_variants:
+        # Split the variant string into chain, residue number, and variant name
+        chain_residue, variant_name = variant.split('=')
+        chain_id = chain_residue[0]
+        residue_number = int(chain_residue[1:])
+
+        # Find the corresponding residue in the modeller
+        for i, residue in enumerate(modeller.topology.residues()):
+            if (residue.chain.id == chain_id) and (int(residue.id) == residue_number):
+                residue_variants[i] = variant_name
+
+    return residue_variants
 
 # def make_sim(modeller, forcefield):
 #     # Step 9: Create the OpenMM System
@@ -158,6 +193,7 @@ def prepare_system(
     output_pdb: str = "system_solvated.pdb",
     forcefield_files: list = ['amber14-all.xml', 'amber14/tip3p.xml'],
     fix: bool = False,
+    hydrogen_variants: list = [],
     keep_temp_files: bool = False
 ):
     """
@@ -188,7 +224,8 @@ def prepare_system(
         forcefield=forcefield,
         hydrogen_templates_dict=hydrogen_templates_dict,
         output_pdb=None,
-        pH=pH
+        pH=pH,
+        hydrogen_variants=hydrogen_variants
     )
 
     # Step 3: Add solvent to the model
