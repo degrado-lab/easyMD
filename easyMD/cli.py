@@ -6,12 +6,13 @@ import typer
 from typing import List
 from click import Context
 from typer.core import TyperGroup
+from typing_extensions import Annotated
 
 class OrderCommands(TyperGroup):
   def list_commands(self, ctx: Context):
     return list(self.commands)
 
-app = typer.Typer(help="Run molecular dynamics simulations with easyMD", add_completion=False, no_args_is_help=True, cls=OrderCommands)
+app = typer.Typer(help="Run molecular dynamics simulations with easyMD.", add_completion=False, no_args_is_help=True, cls=OrderCommands, rich_markup_mode="rich")
 # Listing here so we can check against user inputs later:
 DEFAULT_FORCEFIELD = ["amber14-all.xml", "amber14/tip3p.xml"]
 DEFAULT_WATER_MODEL = 'tip3p'
@@ -24,7 +25,7 @@ def run(
     input_structure: str = typer.Argument(
         ...,
         help="Input structure file (e.g., PDB, CIF)",
-        show_default=False
+        show_default=False,
     ),
     # Optional list of ligand SDF files:
     ligands: List[str] = typer.Option(
@@ -32,26 +33,32 @@ def run(
         "--ligand",
         "-l",
         help="The structure file (e.g., SDF) of a ligand in your system. This file specifies the correct bonds and protonation states. For multiple, use the flag multiple times.",
+        rich_help_panel="Files",
     ),
     output: str = typer.Option(
         "./output",
-        help="Prefix for output files. EasyMD will produce [output].pdb, [output].dcd, and [output]_aligned.dcd."
+        help="Prefix for output files. EasyMD will produce [output].pdb, [output].dcd, and [output]_aligned.dcd.",
+        rich_help_panel="Files",
     ),
     duration: float = typer.Option(
         10,
-        help="Simulation duration in nanoseconds"
+        help="Simulation duration in nanoseconds",
+        rich_help_panel="Simulation Settings",
     ),
     relax_duration: float = typer.Option(
         1.0,
-        help="Duration of initial equilibration/relaxation simulation, in nanoseconds"
+        help="Duration of initial equilibration/relaxation simulation, in nanoseconds",
+        rich_help_panel="Simulation Settings",
     ),
     output_frequency: float = typer.Option(
         1,
-        help="Output frequency in nanoseconds"
+        help="Output frequency in nanoseconds",
+        rich_help_panel="Simulation Settings",
     ),
     fix: bool = typer.Option(
         True,
-        help="Fix the structure during preparation with PDBFixer"
+        help="Fix the structure during preparation with PDBFixer",
+        rich_help_panel="System Preparation",
     ),
     forcefield: List[str] = typer.Option(
         DEFAULT_FORCEFIELD,
@@ -59,30 +66,68 @@ def run(
         "-f",
         help="List of forcefield files (e.g., amber14-all.xml amber14/tip3p.xml).\n \
                 To list available files, run `easymd forcefields`. \n \
-                Use multiple times for multiple forcefield files."
+                Use multiple times for multiple forcefield files.",
+        rich_help_panel="Forcefield",
     ),
     water_model: str = typer.Option(
         DEFAULT_WATER_MODEL,
-        help = 'Water model used for solvation. Must match forcefield parameters. (tip3p|spce|tip4pew|tip5p|swm4ndp)'
+        help = 'Water model used for solvation. Must match forcefield parameters. (tip3p|spce|tip4pew|tip5p|swm4ndp|implicit).',
+        rich_help_panel="System Preparation",
     ),
     pH: float = typer.Option(
         7.0,
-        help = 'pH of the system. Used for protonation state calculations.'
+        help = 'pH of the system. Used for protonation state calculations.',
+        rich_help_panel="System Preparation",
     ),
     hydrogen_variants: List[str] = typer.Option(
         [],
         "--hydrogen-variant",
         "-hv",
-        help="List of hydrogen variants to use. Specify the chain and residue number, then the variant. E.g. A13=HIE, or B98=ASH. \n \
-            Use multiple times for multiple variants."
+        help="List of hydrogen variants to use. Specify the chain and residue number, then the variant. E.g. A:13=HIE, or B:98=ASH. \n \
+            Use multiple times for multiple variants.",
+        rich_help_panel="System Preparation",
     ),
     ionic_strength: float = typer.Option(
         DEFAULT_IONIC_STRENGTH,
-        help = 'Ionic strength used in solvation of the system (Molar).'
+        help = 'Ionic strength used in solvation of the system (Molar).',
+        rich_help_panel="System Preparation",
     ),
     box_padding: float = typer.Option(
         DEFAULT_BOX_PADDING,
-        help = 'Padding of solvent around the system (nanometers).'
+        help = 'Padding of solvent around the system (nanometers).',
+        rich_help_panel="System Preparation",
+    ),
+    custom_bonds: List[str] = typer.Option(
+        [],
+        "--custom-bond",
+        "-cb",
+        help="List of custom harmonic bonds to add. Specify the two atoms in the form 'chain_id:residue_id:atom_name', then the k-value (units kcal/(mol*A^2)), then the target distance (units A). \n \
+            E.g. A:99:CG,B:99:CG,10.0,2.0 \n \
+            Use multiple times for multiple bonds.",
+        rich_help_panel="Forcefield",
+    ),
+    custom_angles: List[str] = typer.Option(
+        [],
+        "--custom-angle",
+        "-ca",
+        help="List of custom harmonic angles to add. Specify the three atoms in the form 'chain_id:residue_id:atom_name', then the k-value (units kcal/mol), the periodicity, and the phase value (units DEGREES). \n \
+            E.g. A:99:CG,B:99:CG,C:99:CG,10.0,1,180 \n \
+            Use multiple times for multiple angles.",
+        rich_help_panel="Forcefield",
+    ),
+    custom_torsions: List[str] = typer.Option(
+        [],
+        "--custom-torsion",
+        "-ct",
+        help="List of custom harmonic torsions to add. Specify the four atoms in the form 'chain_id:residue_id:atom_name', then the k-value (units kcal/(mol*RADIANs^2)), then the target angle (units DEGREES). \n \
+            E.g. A:99:CG,B:99:CG,C:99:CG,D:99:CG,10.0,109.5 \n \
+            Use multiple times for multiple torsions.",
+        rich_help_panel="Forcefield",
+    ),
+    minimize_only: bool = typer.Option(
+        False,
+        help="Only minimize the system and output the minimized structure. No simulation will be run.",
+        rich_help_panel="Simulation Settings",
     ),
     log_level: str = typer.Option(
         "INFO",
@@ -91,7 +136,8 @@ def run(
     )
 ):
     """
-    Prepare and run a molecular dynamics simulation.
+    Prepare and run a molecular dynamics simulation.\n
+    Example usage: easymd run protein_ligand.cif -l ligand.sdf --output ./output/out --duration 100 --output-frequency 1
     """
     # Set up logging
     logging.basicConfig(level=getattr(logging, log_level.upper()))
@@ -100,6 +146,9 @@ def run(
     # If we changed the default ForceField or Water model, remind the user to make sure they match.
     if forcefield != DEFAULT_FORCEFIELD or water_model != DEFAULT_WATER_MODEL:
         logging.warning('Default forcefield or water model has been changed. Ensure the forcefield parameters and water model for solvation match.')
+    if water_model == 'implicit' and ligands != []:
+        raise ValueError('Currently, when using implicit water model, ligands cannot be added dynamically to the forcefield (e.g., via SDF). \n \
+                         Please use forcefield XML files that include the ligand parameters.')
 
     # Convert input/output paths to Path objects
     input_path = Path(input_structure)
@@ -108,6 +157,7 @@ def run(
     output_pdb_path =       output_name.with_suffix('.pdb')
     output_traj_path =      output_name.with_suffix('.dcd')
     output_aligned_path =   output_name.with_name(f"{output_name.stem}_aligned.dcd")
+    output_EM_pdb_path =   output_name.with_name(f"{output_name.stem}_EM.pdb")
 
     # Verify input file exists
     if not input_path.exists():
@@ -118,13 +168,6 @@ def run(
 
     from easyMD.app import prepare_system, run_simulation, process_trajectory
     # Prepare system
-    # simulation = prepare_simulation(
-    #     str(input_path),
-    #     ligand_sdf_paths=ligands,
-    #     output_pdb=str(output_pdb_path),
-    #     fix=fix,
-    #     water_model=water_model
-    # )
     system, modeller = prepare_system(
         protein_input_path = str(input_path),
         ligand_sdf_paths = ligands,
@@ -135,20 +178,33 @@ def run(
         output_pdb=str(output_pdb_path),
         forcefield_files = forcefield,
         fix = fix,
-        hydrogen_variants = hydrogen_variants
+        hydrogen_variants = hydrogen_variants,
+        custom_bonds = custom_bonds,
+        custom_angles = custom_angles,
+        custom_torsions = custom_torsions
     )
     
     try:
         # Run simulation
+        run_em = True
+        run_relax = True
+        run_sim = True
+
+        if minimize_only:
+            run_relax = False
+            run_sim = False
+
         run_simulation(
             system=system,
             modeller=modeller,
             output_file=str(output_traj_path),
             duration=duration * unit.nanoseconds,
             output_frequency=output_frequency * unit.nanoseconds,
-            energy_minimize=True,
-            relax=True,
-            relax_duration = relax_duration * unit.nanoseconds
+            energy_minimize=run_em,
+            relax=run_relax,
+            simulate=run_sim,
+            relax_duration = relax_duration * unit.nanoseconds,
+            minimized_pdb= str(output_EM_pdb_path) if minimize_only else None,
         )
     except KeyboardInterrupt:
         logging.info("Simulation interrupted by user")
@@ -157,11 +213,12 @@ def run(
         raise
 
     # Process trajectory
-    process_trajectory(
-        str(output_pdb_path),
-        str(output_traj_path),
-        str(output_aligned_path)
-    )
+    if not minimize_only and not (water_model == 'implicit'): # This isn't implemented for implicit solvent
+        process_trajectory(
+            str(output_pdb_path),
+            str(output_traj_path),
+            str(output_aligned_path)
+        )
     
     logging.info("Done!")
 

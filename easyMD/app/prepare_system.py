@@ -125,8 +125,13 @@ def add_hydrogens_to_model( modeller, forcefield, hydrogen_templates_dict, outpu
 def add_solvent_to_model( modeller, forcefield, water_model, ionic_strength, box_padding, output_pdb=None ):
     logger.debug("Adding solvent (model=%s, ionic_strength=%s, padding=%s).",
                 water_model, ionic_strength, box_padding)
-    modeller.addSolvent(forcefield, model=water_model,
-                        ionicStrength=ionic_strength, padding=box_padding)
+    
+    if water_model != 'implicit':
+        modeller.addSolvent(forcefield, model=water_model,
+                            ionicStrength=ionic_strength, padding=box_padding)
+    else:
+        # Add implicit solvent
+        logger.debug("Using implicit solvent (No explicit solvent added).")
 
     # Write out the solvated structure
     if output_pdb is not None:
@@ -138,7 +143,7 @@ def add_solvent_to_model( modeller, forcefield, water_model, ionic_strength, box
 def parse_hydrogen_variants(hydrogen_variants, modeller):
     """
     Inputs:
-    - hydrogen_variants: list of strings of form [CHAINRESID=VARIANT, ...]. Example: ['A1=HIS', 'C102=HIE']
+    - hydrogen_variants: list of strings of form [CHAIN:RESID=VARIANT, ...]. Example: ['A:1=HIS', 'C:102=HIE']
 
     Outputs:
     - list of length n, where n is the number of residues in the modeller.
@@ -152,8 +157,14 @@ def parse_hydrogen_variants(hydrogen_variants, modeller):
     for variant in hydrogen_variants:
         # Split the variant string into chain, residue number, and variant name
         chain_residue, variant_name = variant.split('=')
-        chain_id = chain_residue[0]
-        residue_number = int(chain_residue[1:])
+        chain_id, residue_number = chain_residue.split(':')
+        residue_number = int(residue_number)
+        # Check if the chain ID is valid
+        if chain_id not in [chain.id for chain in modeller.topology.chains()]:  
+            raise ValueError(f"Invalid chain ID: {chain_id}")
+        # Check if the residue number is valid
+        if residue_number not in [int(residue.id) for residue in modeller.topology.residues() if residue.chain.id == chain_id]:
+            raise ValueError(f"Invalid residue number: {residue_number}")
 
         # Find the corresponding residue in the modeller
         for i, residue in enumerate(modeller.topology.residues()):
@@ -162,22 +173,78 @@ def parse_hydrogen_variants(hydrogen_variants, modeller):
 
     return residue_variants
 
-# def make_sim(modeller, forcefield):
-#     # Step 9: Create the OpenMM System
-#     system = prep_system.create_openmm_system(modeller, forcefield)
-    
-#     # Step 10: Create integrator + Simulation
-#     simulation = prep_system.create_simulation(
-#         system=system,
-#         modeller=modeller,
-#         platform_name=platform_name,
-#         temperature=temperature,
-#         friction=friction,
-#         timestep=timestep
-#     )
+def parse_custom_bonds(custom_bonds):
+    """
+    Parses a list of custom bonds from a string to a list of tuples.
+    Inputs:
+    - custom_bonds: list of strings of form ["atom1,atom2,k,r0" , ...]
 
-#     logger.info("System setup complete.")
-#     return simulation
+    Outputs:
+    - list of tuples.
+    """
+
+
+    # Create a list of tuples for each custom bond
+    custom_bond_list = []
+    for bond in custom_bonds:
+        split_string = bond.split(',')
+        if len(split_string) != 4:
+            raise ValueError("Custom bond string must be of the form 'atom1,atom2,k,r0'")
+        # Parse the bond string into its components
+        atom1, atom2, k, r0 = split_string
+        k = float(k)
+        r0 = float(r0)
+        custom_bond_list.append((atom1, atom2, k, r0))
+
+    return custom_bond_list
+
+def parse_custom_angles(custom_angles):
+    """
+    Parses a list of custom angles from a string to a list of tuples.
+    Inputs:
+    - custom_angles: list of strings of form ["atom1,atom2,atom3,k,theta0" , ...]
+
+    Outputs:
+    - list of tuples.
+    """
+
+    # Create a list of tuples for each custom angle
+    custom_angle_list = []
+    for angle in custom_angles:
+        split_string = angle.split(',')
+        if len(split_string) != 5:
+            raise ValueError("Custom angle string must be of the form 'atom1,atom2,atom3,k,theta0'")
+        # Parse the angle string into its components
+        atom1, atom2, atom3, k, theta0 = split_string
+        k = float(k)
+        theta0 = float(theta0)
+        custom_angle_list.append((atom1, atom2, atom3, k, theta0))
+
+    return custom_angle_list
+
+def parse_custom_torsions(custom_torsions):
+    """
+    Parses a list of custom torsions from a string to a list of tuples.
+    Inputs:
+    - custom_torsions: list of strings of form ["atom1,atom2,atom3,atom4,k,phi0" , ...]
+
+    Outputs:
+    - list of tuples.
+    """
+
+    # Create a list of tuples for each custom torsion
+    custom_torsion_list = []
+    for torsion in custom_torsions:
+        split_string = torsion.split(',')
+        if len(split_string) != 6:
+            raise ValueError("Custom torsion string must be of the form 'atom1,atom2,atom3,atom4,k,phase'")
+        # Parse the torsion string into its components
+        atom1, atom2, atom3, atom4, k, phase = split_string
+        k = float(k)
+        phase = float(phase)
+        custom_torsion_list.append((atom1, atom2, atom3, atom4, k, phase))
+
+    return custom_torsion_list
 
 def prepare_system(
     protein_input_path: str,
@@ -194,7 +261,10 @@ def prepare_system(
     forcefield_files: list = ['amber14-all.xml', 'amber14/tip3p.xml'],
     fix: bool = False,
     hydrogen_variants: list = [],
-    keep_temp_files: bool = False
+    keep_temp_files: bool = False,
+    custom_bonds: list = [],
+    custom_angles: list = [],
+    custom_torsions: list = [],
 ):
     """
     High-level wrapper to set up an OpenMM `Simulation` from a protein (PDB or CIF)
@@ -208,6 +278,11 @@ def prepare_system(
         temp_dir = mkdtemp()
     else:
         temp_dir = Path('prep')
+
+    # Parse custom bonds, angles, and torsions:
+    custom_bonds = parse_custom_bonds(custom_bonds)
+    custom_angles = parse_custom_angles(custom_angles)
+    custom_torsions = parse_custom_torsions(custom_torsions)
 
     # Step 1: Prepare the model, forcefield, and hydrogen templates:
     modeller, forcefield, hydrogen_templates_dict = prepare_model(
@@ -244,13 +319,21 @@ def prepare_system(
     logger.debug("Creating OpenMM System.")
     system = forcefield.createSystem(
         modeller.topology,
-        nonbondedMethod=openmm.app.PME,
+        nonbondedMethod=openmm.app.PME if water_model != 'implicit' else openmm.app.NoCutoff, # for implicit water, we don't use a periodic system.
         nonbondedCutoff=1.0 * openmm.unit.nanometer,
         constraints=None,
         rigidWater=True,
         removeCMMotion=False,
         hydrogenMass=None,
     )
+
+    # Step 10: Add a custom force to the system
+    for custom_bond in custom_bonds:
+        system = prep_forcefield.add_harmonic_force(system, modeller, *custom_bond)
+    for custom_angle in custom_angles:
+        system = prep_forcefield.add_angle_force(system, modeller, *custom_angle)
+    for custom_torsion in custom_torsions:
+        system = prep_forcefield.add_torsion_force(system, modeller, *custom_torsion)
 
     logger.info("System setup complete.")
     return system, modeller

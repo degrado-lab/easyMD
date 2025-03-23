@@ -334,3 +334,45 @@ def find_ligand_chain_and_resid(pdb_topology, residue_name):
             if residue.name == residue_name:
                 return chain.id, int(residue.id)
     raise ValueError(f"Residue {residue_name} not found in topology.")
+
+def get_atom_indices(modeller, atoms):
+    """
+    Given a Modeller object and an atom specification string, return the indices of the specified atoms.
+
+    Parameters:
+        modeller (openmm.app.Modeller): The Modeller object containing the topology.
+        atoms (list): The list of atom specification strings in the format "chain_id:residue_id:atom_name".
+
+    Returns:
+        list: A list of indices of the specified atoms.
+    """
+    indices = []
+
+    for atom_spec in atoms:
+        chain_id, residue_id, atom_name = atom_spec.split(':')
+        
+        # We'll keep track of these to make the debug messages better:
+        found_chain = False
+        found_residue = False
+        found_atom_name = False
+        for atom in modeller.topology.atoms():
+            if (atom.residue.chain.id == chain_id):
+                found_chain = True
+                if (atom.residue.id.strip() == residue_id):
+                    found_residue=True
+                    if (atom.name == atom_name):
+                        found_atom_name=True
+                        # Add the atom index to the list
+                        indices.append(atom.index)
+                        break
+        else:
+            error_string = f"Could not find atom {atom_spec} in the topology."
+            if not found_chain:
+                error_string += f"\nChain {chain_id} not found.\nFound chains: {[chain.id for chain in modeller.topology.chains()]}"
+            elif not found_residue:
+                error_string += f"\nResidue {residue_id} not found.\nFound residues: {[residue.id for residue in modeller.topology.residues() if residue.chain.id == chain_id]}"
+            elif not found_atom_name:
+                error_string += f"\nAtom {atom_name} not found.\nFound atoms: {[atom.name for atom in modeller.topology.atoms() if atom.residue.chain.id == chain_id and atom.residue.id.strip() == residue_id]}"
+            raise ValueError(error_string)
+
+    return indices

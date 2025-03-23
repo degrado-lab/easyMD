@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def run_simulation(system, modeller: app.Modeller, output_file: str, duration: unit.Quantity, output_frequency: unit.Quantity = 1000*unit.femtoseconds, energy_minimize: bool = True, relax: bool = True, relax_duration: unit.Quantity = 1*unit.nanoseconds):
+def run_simulation(system, modeller: app.Modeller, output_file: str, duration: unit.Quantity, output_frequency: unit.Quantity = 1000*unit.femtoseconds, energy_minimize: bool = True, relax: bool = True, simulate: bool = True, relax_duration: unit.Quantity = 1*unit.nanoseconds, minimized_pdb: str = None):
     """
     Run a simulation for a given duration, and output to a DCD file.
     By default, the system is energy minimized until convergence, and equilibrated for 1 ns.
@@ -19,7 +19,9 @@ def run_simulation(system, modeller: app.Modeller, output_file: str, duration: u
         output_frequency: frequency of output in OpenMM time units (default: 0.1*unit.nanoseconds)
         energy_minimize: bool, whether to energy minimize the system (default: True)
         equilibrate: bool, whether to equilibrate the system (default: True)
+        simulate: bool, whether to run the simulation (default: True)
         equilibration_duration: duration of equilibration in OpenMM time units (default: 1*unit.nanoseconds)
+        minimized_pdb: str, path to output file for minimized structure (default: None)
     """
     from sys import stdout
     from openmm import MonteCarloBarostat
@@ -44,14 +46,21 @@ def run_simulation(system, modeller: app.Modeller, output_file: str, duration: u
     prod_steps = int(duration / time_step)
     output_frequency_steps = int(output_frequency / time_step)
 
+    # Is our system periodic?
+    periodic = system.usesPeriodicBoundaryConditions()
     logger.info(f'Duration: {duration} \n Output Frequency: {output_frequency} ')
 
     if energy_minimize:
-        logger.info("Minimizing energy...")
+        logger.info("Minimizing energy until convergence...")
         simulation.minimizeEnergy(
             #tolerance=10 * unit.kilojoules_per_mole, #I'm not sure what units this should actually be...
             maxIterations= 0 # Until convergence
         )
+        # Output EM file as PDB:
+        if minimized_pdb is not None:
+            logger.info(f"Writing minimized structure to {minimized_pdb}")
+            with open(str(minimized_pdb), 'w') as pdb_file:
+                app.PDBFile.writeFile(simulation.topology, simulation.context.getState(getPositions=True).getPositions(), pdb_file)
     
     # Write the output file:
     simulation.reporters.append(app.StateDataReporter(stdout, output_frequency_steps, step=True, potentialEnergy=True, temperature=True, volume=True, density=True))
@@ -59,18 +68,27 @@ def run_simulation(system, modeller: app.Modeller, output_file: str, duration: u
     # Equilibration is NVT, then NPT
     if relax:
         # NVT
-        logger.info("Equilibrating...")
+        logger.info(f"Equilibrating in NVT ensemble for {relax_duration / 2}...")
         simulation.step(int( relax_steps / 2))
 
         # NPT
-        simulation.system.addForce(MonteCarloBarostat(1*unit.atmosphere, 300*unit.kelvin))
+        # But if we're non-periodic, keep it NVT:
+        if periodic: 
+            logger.info(f"Equilibrating in NPT ensemble for {relax_duration / 2}...")
+            simulation.system.addForce(MonteCarloBarostat(1*unit.atmosphere, 300*unit.kelvin))
+        else:
+            logger.info(f"Non-periodic simulation. Continuing equilibration in NVT ensemble for {relax_duration / 2}...")
         simulation.context.reinitialize(preserveState=True)
         simulation.step(int( relax_steps / 2))
 
     # Add the DCD reporter and run the production simulation:
-    logger.info("Running production simulation...")
-    simulation.reporters.append(app.DCDReporter(output_file, output_frequency_steps))
-    simulation.step(prod_steps)
+    if simulate:
+        if periodic:
+            logger.info(f"Running production simulation in NPT ensemble for {duration}...")
+        else:
+            logger.info(f"Non-periodic simulation. Running production simulation in NVT ensemble for {duration}...")
+        simulation.reporters.append(app.DCDReporter(output_file, output_frequency_steps))
+        simulation.step(prod_steps)
 
 '''
 Eventually, it would be nice for the sim to be defined by a comprehensive dictionary, like the following.
@@ -128,52 +146,3 @@ For now, we'll be a bit more rigid but practical.
         }
 }
 '''
-
-# def run_simulation(system: app.System, output_file: str, duration: unit.Quantity, output_frequency: unit.Quantity = 1000*unit.femtoseconds, energy_minimize: bool = True, relax: bool = True, relax_duration: unit.Quantity = 1*unit.nanoseconds):
-#     """
-#     Run a simulation for a given duration, and output to a DCD file.
-#     By default, the system is energy minimized until convergence, and equilibrated for 1 ns.
-#     Inputs:
-#         simulation: OpenMM Simulation object
-#         output_file: str, path to output file
-#         duration: How long to run the simulation. A duration in OpenMM time units (e.g. 100*unit.nanoseconds)
-#         output_frequency: frequency of output in OpenMM time units (default: 0.1*unit.nanoseconds)
-#         energy_minimize: bool, whether to energy minimize the system (default: True)
-#         equilibrate: bool, whether to equilibrate the system (default: True)
-#         equilibration_duration: duration of equilibration in OpenMM time units (default: 1*unit.nanoseconds)
-#     """
-#     from sys import stdout
-#     from openmm import MonteCarloBarostat
-
-#     # What's the time step?
-#     time_step = simulation.integrator.getStepSize()
-#     # How many steps to run?
-#     relax_steps = int(relax_duration / time_step)
-#     prod_steps = int(duration / time_step)
-#     output_frequency_steps = int(output_frequency / time_step)
-
-#     logger.info(f'Duration: {duration} \n Output Frequency: {output_frequency} ')
-
-#     if energy_minimize:
-#         logger.info("Minimizing energy...")
-#         simulation.minimizeEnergy()
-    
-#     # Write the output file:
-#     simulation.reporters.append(app.StateDataReporter(stdout, output_frequency_steps, step=True, potentialEnergy=True, temperature=True, volume=True, density=True))
-    
-#     # Equilibration is NVT, then NPT
-#     if relax:
-#         # NVT
-#         logger.info("Equilibrating...")
-#         simulation.step(int( relax_steps / 2))
-
-#         # NPT
-#         simulation.system.addForce(MonteCarloBarostat(1*unit.atmosphere, 300*unit.kelvin))
-#         simulation.context.reinitialize(preserveState=True)
-#         simulation.step(int( relax_steps / 2))
-
-#     # Add the DCD reporter and run the production simulation:
-#     logger.info("Running production simulation...")
-#     simulation.reporters.append(app.DCDReporter(output_file, output_frequency_steps))
-#     simulation.step(prod_steps)
-    

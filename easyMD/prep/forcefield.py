@@ -93,3 +93,136 @@ def make_forcefield(forcefield_files, NS_residue_dict):
         forcefield = add_molecule_to_forcefield(forcefield, ligand_molecule, name=ligand_sdf_path)
 
     return forcefield
+
+def add_harmonic_force(system, modeller, atom1, atom2, k_value=10.0, r0_value=2.0):
+    """
+    Adds a custom harmonic force to pull two specified atoms together.
+    
+    Parameters:
+      system   : an OpenMM System object.
+      modeller      : a modeller object from which the topology is used.
+      atom1   : string, the first atom in the format "chain_id:residue_id:atom_name".
+      atom2   : string, the second atom in the format "chain_id:residue_id:atom_name".
+      k_value  : force constant in kilocalories_per_mole/angstrom^2 (default: 10.0).
+      r0_value : target distance in angstrom (default: 2.0).
+    
+    Returns:
+      The modified system with the custom force added.
+    
+    Raises:
+      ValueError if one or both atoms cannot be located in the pdb topology.
+    """
+    logger.info(f"Adding custom Harmonic force between {atom1} and {atom2}, with force constant {k_value} kcal/(mol*A^2) and target distance {r0_value} A.")
+
+    from openmm import CustomBondForce, unit
+    from easyMD.prep.structure import get_atom_indices
+
+    # Get the atom indices from the modeller
+    atom1_index, atom2_index = get_atom_indices(modeller, [atom1, atom2])
+
+    # Define a harmonic potential: E = 0.5 * k * (r - r0)^2
+    customBondForce = CustomBondForce("0.5 * k * (r - r0)^2")
+    customBondForce.addPerBondParameter("k")   # Force constant
+    customBondForce.addPerBondParameter("r0")  # Target distance
+
+    # Set the parameters with proper unit conversions
+    k = k_value * unit.kilocalories_per_mole/unit.angstrom**2
+    r0 = r0_value * unit.angstrom
+
+    # Add the bond between the two atoms
+    customBondForce.addBond(atom1_index, atom2_index, [k, r0])
+
+    # Add the custom force to the system
+    system.addForce(customBondForce)
+    
+    return system
+
+def add_angle_force(system, modeller, atom1, atom2, atom3, k_value=10.0, theta0_value=109.5):
+    """
+    Adds a custom harmonic angle force to maintain a specified angle between three atoms.
+    
+    Parameters:
+      system      : an OpenMM System object.
+      modeller    : a modeller object from which the topology is used.
+      atom1, atom2, atom3 : strings, each specifying an atom in the format "chain_id:residue_id:atom_name".
+      k_value     : force constant in kilocalories_per_mole/radian^2 (default: 10.0).
+      theta0_value: target angle in degrees (default: 109.5).
+    
+    Returns:
+      The modified system with the custom angle force added.
+    
+    Raises:
+      ValueError if one or more atoms cannot be located in the pdb topology.
+    """
+    logger.info(f"Adding custom Harmonic Angle force among {atom1}, {atom2}, and {atom3}, "
+                f"with force constant {k_value} kcal/(mol*rad^2) and target angle {theta0_value} degrees.")
+
+    from openmm import CustomAngleForce, unit
+    from easyMD.prep.structure import get_atom_indices
+    import math
+
+    # Get the atom indices from the modeller
+    atom1_index, atom2_index, atom3_index = get_atom_indices(modeller, [atom1, atom2, atom3])
+
+    # Define a harmonic angle potential: E = 0.5 * k * (theta - theta0)^2
+    customAngleForce = CustomAngleForce("0.5 * k * (theta - theta0)^2")
+    customAngleForce.addPerAngleParameter("k")      # Force constant
+    customAngleForce.addPerAngleParameter("theta0")   # Target angle (in radians)
+
+    # Convert target angle from degrees to radians and set unit for k
+    k = k_value * unit.kilocalories_per_mole / unit.radian**2
+    theta0 = math.radians(theta0_value)
+
+    # Add the angle defined by the three atoms
+    customAngleForce.addAngle(atom1_index, atom2_index, atom3_index, [k, theta0])
+
+    # Add the custom force to the system
+    system.addForce(customAngleForce)
+
+    return system
+
+def add_torsion_force(system, modeller, atom1, atom2, atom3, atom4, k_value=10.0, periodicity=1, phase_value=0.0):
+    """
+    Adds a custom torsion force using a periodic potential.
+    
+    Parameters:
+      system      : an OpenMM System object.
+      modeller    : a modeller object from which the topology is used.
+      atom1, atom2, atom3, atom4 : strings, each specifying an atom in the format "chain_id:residue_id:atom_name".
+      k_value     : force constant in kilocalories_per_mole (default: 10.0).
+      periodicity : periodicity of the torsion potential (default: 1).
+      phase_value : phase offset in degrees (default: 0.0).
+    
+    Returns:
+      The modified system with the custom torsion force added.
+    
+    Raises:
+      ValueError if one or more atoms cannot be located in the pdb topology.
+    """
+    logger.info(f"Adding custom Torsion force among {atom1}, {atom2}, {atom3}, and {atom4}, "
+                f"with force constant {k_value} kcal/mol, periodicity {periodicity}, and phase {phase_value} degrees.")
+
+    from openmm import CustomTorsionForce, unit
+    from easyMD.prep.structure import get_atom_indices
+    import math
+
+    # Get the atom indices from the modeller
+    atom1_index, atom2_index, atom3_index, atom4_index = get_atom_indices(modeller, [atom1, atom2, atom3, atom4])
+
+    # Define a periodic torsion potential: E = k * (1 + cos(n*phi - phase))
+    customTorsionForce = CustomTorsionForce("k*(1 + cos(n*phi - phase))")
+    customTorsionForce.addPerTorsionParameter("k")     # Force constant
+    customTorsionForce.addPerTorsionParameter("n")       # Periodicity
+    customTorsionForce.addPerTorsionParameter("phase")   # Phase (in radians)
+
+    # Convert phase from degrees to radians and set unit for k
+    k = k_value * unit.kilocalories_per_mole
+    phase = math.radians(phase_value)
+
+    # Add the torsion defined by the four atoms
+    customTorsionForce.addTorsion(atom1_index, atom2_index, atom3_index, atom4_index, [k, periodicity, phase])
+
+    # Add the custom force to the system
+    system.addForce(customTorsionForce)
+
+    return system
