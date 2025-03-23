@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='easyMD',
-    version='3.0.0',    
+    version='3.1.0',    
     description='A set of utilities and notebooks for running OpenMM simulations.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
