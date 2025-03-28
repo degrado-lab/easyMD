@@ -119,8 +119,8 @@ def run(
         [],
         "--custom-torsion",
         "-ct",
-        help="List of custom harmonic torsions to add. Specify the four atoms in the form 'chain_id:residue_id:atom_name', then the k-value (units kcal/(mol*RADIANs^2)), then the target angle (units DEGREES). \n \
-            E.g. A:99:CG,B:99:CG,C:99:CG,D:99:CG,10.0,109.5 \n \
+        help="List of custom harmonic torsions to add. Specify the four atoms in the form 'chain_id:residue_id:atom_name', then the k-value (units kcal/(mol*RADIANs^2)), the periodicity, then the target angle (units DEGREES). \n \
+            E.g. A:99:CG,B:99:CG,C:99:CG,D:99:CG,10.0,1,109.5 \n \
             Use multiple times for multiple torsions.",
         rich_help_panel="Forcefield",
     ),

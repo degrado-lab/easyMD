@@ -236,13 +236,14 @@ def parse_custom_torsions(custom_torsions):
     custom_torsion_list = []
     for torsion in custom_torsions:
         split_string = torsion.split(',')
-        if len(split_string) != 6:
+        if len(split_string) != 7:
             raise ValueError("Custom torsion string must be of the form 'atom1,atom2,atom3,atom4,k,phase'")
         # Parse the torsion string into its components
-        atom1, atom2, atom3, atom4, k, phase = split_string
+        atom1, atom2, atom3, atom4, k, periodicity, phase = split_string
         k = float(k)
         phase = float(phase)
-        custom_torsion_list.append((atom1, atom2, atom3, atom4, k, phase))
+        periodicity = float(periodicity)
+        custom_torsion_list.append((atom1, atom2, atom3, atom4, k, periodicity, phase))
 
     return custom_torsion_list
 

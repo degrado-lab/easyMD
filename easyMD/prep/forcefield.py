@@ -210,7 +210,7 @@ def add_torsion_force(system, modeller, atom1, atom2, atom3, atom4, k_value=10.0
     atom1_index, atom2_index, atom3_index, atom4_index = get_atom_indices(modeller, [atom1, atom2, atom3, atom4])
 
     # Define a periodic torsion potential: E = k * (1 + cos(n*phi - phase))
-    customTorsionForce = CustomTorsionForce("k*(1 + cos(n*phi - phase))")
+    customTorsionForce = CustomTorsionForce("k*(1 + cos(n*theta - phase))")
     customTorsionForce.addPerTorsionParameter("k")     # Force constant
     customTorsionForce.addPerTorsionParameter("n")       # Periodicity
     customTorsionForce.addPerTorsionParameter("phase")   # Phase (in radians)
