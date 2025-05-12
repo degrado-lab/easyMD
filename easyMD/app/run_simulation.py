@@ -89,6 +89,56 @@ def run_simulation(system, modeller: app.Modeller, output_file: str, duration: u
             logger.info(f"Non-periodic simulation. Running production simulation in NVT ensemble for {duration}...")
         simulation.reporters.append(app.DCDReporter(output_file, output_frequency_steps))
         simulation.step(prod_steps)
+    
+
+def energy_minimize_with_trajectory(system, modeller: app.Modeller, output_pdb: str, output_traj: str):
+    """
+    Run a simulation for a given duration, and output to a DCD file.
+    By default, the system is energy minimized until convergence, and equilibrated for 1 ns.
+    Inputs:
+        simulation: OpenMM Simulation object
+        modeller: OpenMM Modeller object
+        output_file: str, path to output file
+    """
+
+    from sys import stdout
+
+    # Step 1: Create the simulation:
+    simulation = prep_system.create_simulation(
+        system=system,
+        modeller=modeller,
+        integrator='LangevinIntegrator',
+        integrator_args={
+            'temperature': 300*unit.kelvin,
+            'friction': 1/unit.picoseconds,
+            'timestep': 2*unit.femtoseconds
+        }
+    )
+
+    logger.info("Minimizing energy until convergence...")
+
+    # Write initial PDB:
+    with open(str(output_pdb), 'w') as pdb_file:
+        app.PDBFile.writeFile(simulation.topology, simulation.context.getState(getPositions=True).getPositions(), pdb_file)
+
+    # Create a new trajectory file:
+    simulation.reporters.append(app.DCDReporter(output_traj, 1))
+    # Write the output file:
+    simulation.reporters.append(app.StateDataReporter(stdout, 1000, step=True, potentialEnergy=True, temperature=True, volume=True, density=True))
+    # Run the simulation:
+    # Perform pseudo-minimization steps manually
+    from tqdm import tqdm
+    for step in tqdm(range(100)):
+        simulation.minimizeEnergy(maxIterations=10)
+        # Force context update by re-setting positions
+        positions = simulation.context.getState(getPositions=True).getPositions()
+        simulation.context.setPositions(positions)  # Ensure reporter sees it
+        simulation.reporters[0].report(simulation, simulation.context.getState(getPositions=True))
+
+    # Write initial PDB:
+    with open(str(output_pdb), 'w') as pdb_file:
+        app.PDBFile.writeFile(simulation.topology, simulation.context.getState(getPositions=True).getPositions(), pdb_file)
+        
 
 '''
 Eventually, it would be nice for the sim to be defined by a comprehensive dictionary, like the following.

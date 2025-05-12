@@ -97,8 +97,12 @@ def prepare_model(
 
     return modeller, forcefield, hydrogen_templates_dict
 
-def add_hydrogens_to_model( modeller, forcefield, hydrogen_templates_dict, output_pdb=None, pH=7.0, hydrogen_variants=[] ):
+def add_hydrogens_to_model( modeller, forcefield, hydrogen_templates_dict, output_pdb=None, pH=7.0, hydrogen_variants=[], skip_residue_h_names=[] ):
     for residue_name, xml_temp_file_path in hydrogen_templates_dict.items():
+        ### TODO: Add a skip_h_add flag, so we can use user-generated Hs (and to preserver h-names).
+        if residue_name in skip_residue_h_names:
+            logger.debug("Skipping hydrogen addition for residue %s." % residue_name)
+            continue
         logger.debug("Loading hydrogen definitions for ligand %s." % residue_name)
         modeller.loadHydrogenDefinitions( xml_temp_file_path )
 
@@ -260,7 +264,9 @@ def prepare_system(
     water_model: str = 'tip3p',
     output_pdb: str = "system_solvated.pdb",
     forcefield_files: list = ['amber14-all.xml', 'amber14/tip3p.xml'],
-    fix: bool = False,
+    fix: bool = True,
+    add_h: bool = True,
+    skip_residue_h: list = [],
     hydrogen_variants: list = [],
     keep_temp_files: bool = False,
     custom_bonds: list = [],
@@ -295,14 +301,34 @@ def prepare_system(
     )
 
     # Step 2: Add hydrogens to the model
-    modeller = add_hydrogens_to_model(
-        modeller=modeller,
-        forcefield=forcefield,
-        hydrogen_templates_dict=hydrogen_templates_dict,
-        output_pdb=None,
-        pH=pH,
-        hydrogen_variants=hydrogen_variants
-    )
+    if add_h:
+
+        # If there are residues to skip, convert the chain:ID format to resnames:
+        skip_residue_h_names = []
+        for skip_residue in skip_residue_h:
+            # Split the residue into chain and ID
+            chain_id, residue_id = skip_residue.split(':')
+            # Find the corresponding residue in the modeller
+            for residue in modeller.topology.residues():
+                if (residue.chain.id == chain_id) and (int(residue.id) == int(residue_id)):
+                    skip_residue_h_names.append(residue.name)
+                    break
+            else:
+                raise ValueError(f"Residue {skip_residue} not found in the modeller.")
+        if len(skip_residue_h_names) > 0:
+            logger.info("Skipping hydrogen addition for residues: %s" % skip_residue_h_names)
+        
+        modeller = add_hydrogens_to_model(
+            modeller=modeller,
+            forcefield=forcefield,
+            hydrogen_templates_dict=hydrogen_templates_dict,
+            output_pdb=None,
+            pH=pH,
+            hydrogen_variants=hydrogen_variants,
+            skip_residue_h_names=skip_residue_h_names
+        )
+    else:
+        logger.info("--no-add-h flag was used. Will not add hydrogens to model.")
 
     # Step 3: Add solvent to the model
     modeller = add_solvent_to_model(

@@ -60,6 +60,19 @@ def run(
         help="Fix the structure during preparation with PDBFixer",
         rich_help_panel="System Preparation",
     ),
+    add_h: bool = typer.Option(
+        True,
+        help="Add hydrogens during preparation.",
+        rich_help_panel="System Preparation",
+    ),
+    skip_residue_h: List[str] = typer.Option(
+        [],
+        "--skip-residue-h",
+        "-srh",
+        help="List of residues to skip adding hydrogens to. Specify the chain and residue number, then the variant. E.g. A:13, or B:98. \n \
+            Use multiple times for multiple residues.",
+        rich_help_panel="System Preparation",
+    ),
     forcefield: List[str] = typer.Option(
         DEFAULT_FORCEFIELD,
         "--forcefield",
@@ -129,6 +142,11 @@ def run(
         help="Only minimize the system and output the minimized structure. No simulation will be run.",
         rich_help_panel="Simulation Settings",
     ),
+    # minimize_only_with_traj: bool = typer.Option(
+    #     False,
+    #     help="Only minimize the system and output a minimized trajectory. No simulation will be run. (Primarily for visualization.)",
+    #     rich_help_panel="Simulation Settings",
+    # ),
     log_level: str = typer.Option(
         "INFO",
         help="Set logging level (DEBUG|INFO|WARNING|ERROR)",
@@ -158,6 +176,7 @@ def run(
     output_traj_path =      output_name.with_suffix('.dcd')
     output_aligned_path =   output_name.with_name(f"{output_name.stem}_aligned.dcd")
     output_EM_pdb_path =   output_name.with_name(f"{output_name.stem}_EM.pdb")
+    output_EM_traj_path =  output_name.with_name(f"{output_name.stem}_EM.dcd")
 
     # Verify input file exists
     if not input_path.exists():
@@ -166,7 +185,7 @@ def run(
 
     from openmm import unit
 
-    from easyMD.app import prepare_system, run_simulation, process_trajectory
+    from easyMD.app import prepare_system, run_simulation, process_trajectory, energy_minimize_with_trajectory
     # Prepare system
     system, modeller = prepare_system(
         protein_input_path = str(input_path),
@@ -178,11 +197,16 @@ def run(
         output_pdb=str(output_pdb_path),
         forcefield_files = forcefield,
         fix = fix,
+        add_h = add_h,
+        skip_residue_h = skip_residue_h,
         hydrogen_variants = hydrogen_variants,
         custom_bonds = custom_bonds,
         custom_angles = custom_angles,
         custom_torsions = custom_torsions
     )
+    
+    ### TODO: Haven't finished minimize_only_with_traj, the EM visualization function.
+    minimize_traj_only = False
     
     try:
         # Run simulation
@@ -194,18 +218,26 @@ def run(
             run_relax = False
             run_sim = False
 
-        run_simulation(
-            system=system,
-            modeller=modeller,
-            output_file=str(output_traj_path),
-            duration=duration * unit.nanoseconds,
-            output_frequency=output_frequency * unit.nanoseconds,
-            energy_minimize=run_em,
-            relax=run_relax,
-            simulate=run_sim,
-            relax_duration = relax_duration * unit.nanoseconds,
-            minimized_pdb= str(output_EM_pdb_path) if minimize_only else None,
-        )
+        if not minimize_traj_only:
+            run_simulation(
+                system=system,
+                modeller=modeller,
+                output_file=str(output_traj_path),
+                duration=duration * unit.nanoseconds,
+                output_frequency=output_frequency * unit.nanoseconds,
+                energy_minimize=run_em,
+                relax=run_relax,
+                simulate=run_sim,
+                relax_duration = relax_duration * unit.nanoseconds,
+                minimized_pdb= str(output_EM_pdb_path) if minimize_only else None,
+            )
+        else:
+            energy_minimize_with_trajectory(
+                system=system,
+                modeller=modeller,
+                output_pdb=str(output_EM_pdb_path),
+                output_traj=str(output_EM_traj_path),
+            )
     except KeyboardInterrupt:
         logging.info("Simulation interrupted by user")
     except Exception as e:
