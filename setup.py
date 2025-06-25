@@ -30,7 +30,8 @@ setup(
     'biopython',
     'tqdm',
     'requests',
-    'termol'
+    'termol',
+    'typer>=0.9.0'
     ],
 )
 
