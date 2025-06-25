@@ -60,7 +60,7 @@ def run_simulation(system, modeller: app.Modeller, output_file: str, duration: u
         if minimized_pdb is not None:
             logger.info(f"Writing minimized structure to {minimized_pdb}")
             with open(str(minimized_pdb), 'w') as pdb_file:
-                app.PDBFile.writeFile(simulation.topology, simulation.context.getState(getPositions=True).getPositions(), pdb_file)
+                app.PDBFile.writeFile(simulation.topology, simulation.context.getState(getPositions=True).getPositions(), pdb_file, keepIds=True)
     
     # Write the output file:
     simulation.reporters.append(app.StateDataReporter(stdout, output_frequency_steps, step=True, potentialEnergy=True, temperature=True, volume=True, density=True))
@@ -119,7 +119,7 @@ def energy_minimize_with_trajectory(system, modeller: app.Modeller, output_pdb: 
 
     # Write initial PDB:
     with open(str(output_pdb), 'w') as pdb_file:
-        app.PDBFile.writeFile(simulation.topology, simulation.context.getState(getPositions=True).getPositions(), pdb_file)
+        app.PDBFile.writeFile(simulation.topology, simulation.context.getState(getPositions=True).getPositions(), pdb_file, keepIds=True)
 
     # Create a new trajectory file:
     simulation.reporters.append(app.DCDReporter(output_traj, 1))
@@ -137,7 +137,7 @@ def energy_minimize_with_trajectory(system, modeller: app.Modeller, output_pdb: 
 
     # Write initial PDB:
     with open(str(output_pdb), 'w') as pdb_file:
-        app.PDBFile.writeFile(simulation.topology, simulation.context.getState(getPositions=True).getPositions(), pdb_file)
+        app.PDBFile.writeFile(simulation.topology, simulation.context.getState(getPositions=True).getPositions(), pdb_file, keepIds=True)
         
 
 '''

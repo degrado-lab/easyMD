@@ -35,7 +35,7 @@ def prepare_protein_pdb(input_path: str, fix: bool, temp_dir: str = '.') -> str:
 def cif_to_pdb(cif_file, pdb_file):
     pdbx = PDBxFile(cif_file)
     with open(pdb_file, 'w') as f:
-        PDBFile.writeFile(pdbx.topology, pdbx.positions, f)
+        PDBFile.writeFile(pdbx.topology, pdbx.positions, f, keepIds=True)
 
 def fix_pdb(pdb_file, output_file, add_hydrogens=False):
     fixer = PDBFixer(filename=pdb_file)
@@ -45,7 +45,7 @@ def fix_pdb(pdb_file, output_file, add_hydrogens=False):
     if add_hydrogens:
         fixer.addMissingHydrogens(pH=7.0)
     with open(output_file, 'w') as f:
-        PDBFile.writeFile(fixer.topology, fixer.positions, f)
+        PDBFile.writeFile(fixer.topology, fixer.positions, f, keepIds=True)
 
 def add_conect_records(pdb_filename, residues_to_modify, output_filename):
     """

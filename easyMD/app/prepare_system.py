@@ -122,7 +122,7 @@ def add_hydrogens_to_model( modeller, forcefield, hydrogen_templates_dict, outpu
     if output_pdb is not None:
         logger.debug("Writing out hydrogenated structure.")
         with open(output_pdb, 'w') as f:
-            openmm.app.PDBFile.writeFile(modeller.topology, modeller.positions, f)
+            openmm.app.PDBFile.writeFile(modeller.topology, modeller.positions, f, keepIds=True)
 
     return modeller
 
@@ -140,7 +140,7 @@ def add_solvent_to_model( modeller, forcefield, water_model, ionic_strength, box
     # Write out the solvated structure
     if output_pdb is not None:
         with open(output_pdb, 'w') as f:
-            openmm.app.PDBFile.writeFile(modeller.topology, modeller.positions, f)
+            openmm.app.PDBFile.writeFile(modeller.topology, modeller.positions, f, keepIds=True)
 
     return modeller
 
