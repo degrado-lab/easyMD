@@ -103,6 +103,16 @@ EasyMD has a simple utility for adding hydrogens to a structure. Using custom fo
 
 And it takes the same forcefield and ligand parameters as `easymd run`.
 
+## Troubleshooting
+
+Facing a CUDA error? 
+
+```OpenMMException: There is no registered Platform called "CUDA"```
+
+This means OpenMM was built for a different cuda version than your system. Run the following command to re-install openmm:
+
+```conda install -c conda-forge openmm cuda-version=12```
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
