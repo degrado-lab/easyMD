@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='easyMD',
-    version='3.2.1',    
+    version='3.2.2',    
     description='A set of utilities and notebooks for running OpenMM simulations.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
@@ -31,7 +31,7 @@ setup(
     'tqdm',
     'requests',
     'termol',
-    'typer>=0.9.0'
+    'typer>=0.16.0'
     ],
 )
 
