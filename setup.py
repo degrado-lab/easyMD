@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='easyMD',
-    version='3.2.2',    
+    version='3.2.3',    
     description='A set of utilities and notebooks for running OpenMM simulations.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
@@ -23,15 +23,10 @@ setup(
     ],
     python_requires='>=3.10',
     install_requires=[
-    'openmm',
-    'MDAnalysis',
-    'numpy',
-    'rdkit',
-    'biopython',
-    'tqdm',
-    'requests',
-    'termol',
-    'typer>=0.16.0'
+        'typer>=0.16.0',
+        'tqdm',
+        'requests',
+        'termol',
     ],
 )
 

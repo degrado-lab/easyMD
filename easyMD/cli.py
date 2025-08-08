@@ -12,7 +12,7 @@ class OrderCommands(TyperGroup):
   def list_commands(self, ctx: Context):
     return list(self.commands)
 
-app = typer.Typer(help="Run molecular dynamics simulations with easyMD.", add_completion=False, no_args_is_help=True, cls=OrderCommands, rich_markup_mode="rich")
+app = typer.Typer(help="Run molecular dynamics simulations with easyMD.", add_completion=False, no_args_is_help=True, cls=OrderCommands, rich_markup_mode="rich", pretty_exceptions_show_locals=False)
 # Listing here so we can check against user inputs later:
 DEFAULT_FORCEFIELD = ["amber14-all.xml", "amber14/tip3p.xml"]
 DEFAULT_WATER_MODEL = 'tip3p'

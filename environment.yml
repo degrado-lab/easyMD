@@ -2,15 +2,20 @@ name: easymd
 channels:
   - conda-forge
 dependencies:
+  - python=3.10
   - typer>=0.16.0
   - click>=8.0.0
-  - pdbfixer=1.9=pyh1a96a4e_0
-  - openff-toolkit=0.14.5=pyhd8ed1ab_1
-  - openmmforcefields=0.12.0=pyhd8ed1ab_0
+  - pdbfixer=1.9
+  - openff-toolkit=0.14.5
+  - openmmforcefields=0.12.0
+  - openmm=8.2.0         # from conda-forge (includes GPU plugins)
+  - cuda-version=12      # match the user’s CUDA runtime
+  - mdanalysis=2.8.0
+  - numpy=1.26.4
+  - rdkit=2023.03.3
+  - biopython=1.85
+  - tqdm
+  - requests
+  - pip
   - pip:
-      - openmm==8.2.0
-      - mdanalysis==2.8.0
-      - numpy==1.26.4
-      - rdkit==2024.9.5
-      - biopython==1.85
       - termol==0.1.6
