@@ -111,7 +111,7 @@ Facing a CUDA error?
 
 This means OpenMM was built for a different cuda version than your system. Run the following command to re-install openmm:
 
-```conda install -c conda-forge openmm cuda-version=12```
+```conda install -c conda-forge openmm cuda-version=[YOUR CUDA VERSION]```
 
 ## License
 
